@@ -2,7 +2,7 @@
 
 Prometheus exporter for PostgreSQL server-side metrics. 
 
-Tested PostgreSQL Versions: `11`
+Tested PostgreSQL Versions: `11`, `17`
 
 This library is intended as an alternative to the prometheus-community's [postgres_exporter](https://github.com/prometheus-community/postgres_exporter), which still uses [lib/pq](https://github.com/lib/pq); a library that is in maintenance mode.
 
