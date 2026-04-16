@@ -1,4 +1,4 @@
-module github.com/odonate/postgres-exporter
+module github.com/becomeliminal/pgxporter
 
 go 1.17
 

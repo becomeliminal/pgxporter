@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/odonate/postgres-exporter/exporter/db/model"
+	"github.com/becomeliminal/pgxporter/exporter/db/model"
 )
 
 const sqlSelectPgStatStatements = `

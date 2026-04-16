@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/odonate/postgres-exporter/exporter/db"
+	"github.com/becomeliminal/pgxporter/exporter/db"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
 )

@@ -3,7 +3,7 @@ package db
 import (
 	"context"
 
-	"github.com/odonate/postgres-exporter/exporter/db/model"
+	"github.com/becomeliminal/pgxporter/exporter/db/model"
 )
 
 const sqlSelectPgStatActivity = `

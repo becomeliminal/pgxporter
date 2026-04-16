@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 
-	"github.com/odonate/postgres-exporter/exporter"
-	"github.com/odonate/postgres-exporter/exporter/db"
+	"github.com/becomeliminal/pgxporter/exporter"
+	"github.com/becomeliminal/pgxporter/exporter/db"
 )
 
 func main() {

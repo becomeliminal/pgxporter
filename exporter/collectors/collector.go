@@ -1,8 +1,8 @@
 package collectors
 
 import (
-	"github.com/odonate/postgres-exporter/exporter/db"
-	"github.com/odonate/postgres-exporter/exporter/logging"
+	"github.com/becomeliminal/pgxporter/exporter/db"
+	"github.com/becomeliminal/pgxporter/exporter/logging"
 	"github.com/prometheus/client_golang/prometheus"
 )
 

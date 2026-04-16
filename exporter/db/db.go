@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 
-	"github.com/odonate/postgres-exporter/exporter/logging"
+	"github.com/becomeliminal/pgxporter/exporter/logging"
 )
 
 var log = logging.NewLogger()
