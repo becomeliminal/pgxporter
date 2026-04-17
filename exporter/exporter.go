@@ -20,6 +20,10 @@ const namespace = "pg_stat"
 // Opts for the exporter.
 type Opts struct {
 	DBOpts []db.Opts
+	// Name is used as the "database" const label on internal metrics (pg_stat_up,
+	// pg_stat_exporter_scrapes_total) to disambiguate when multiple exporters are
+	// registered in the same Prometheus registry. Optional — omit for single-exporter use.
+	Name string
 }
 
 // Exporter collects PostgreSQL metrics and exports them via prometheus.
@@ -56,20 +60,27 @@ func New(ctx context.Context, opts Opts) (*Exporter, error) {
 		}
 		dbClients = append(dbClients, dbClient)
 	}
+	var constLabels prometheus.Labels
+	if opts.Name != "" {
+		constLabels = prometheus.Labels{"database": opts.Name}
+	}
+
 	return &Exporter{
 		dbClients:  dbClients,
 		collectors: collectors.DefaultCollectors(dbClients),
 
 		// Internal metrics.
 		up: prometheus.NewGauge(prometheus.GaugeOpts{
-			Namespace: namespace,
-			Name:      "up",
-			Help:      "Was the last scrape of PostgreSQL successful.",
+			Namespace:   namespace,
+			Name:        "up",
+			Help:        "Was the last scrape of PostgreSQL successful.",
+			ConstLabels: constLabels,
 		}),
 		totalScrapes: prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: namespace,
-			Name:      "exporter_scrapes_total",
-			Help:      "Current total PostgreSQL scrapes",
+			Namespace:   namespace,
+			Name:        "exporter_scrapes_total",
+			Help:        "Current total PostgreSQL scrapes",
+			ConstLabels: constLabels,
 		}),
 	}, nil
 }
