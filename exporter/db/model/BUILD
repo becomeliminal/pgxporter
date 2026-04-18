@@ -5,6 +5,6 @@ go_library(
     ],
     visibility = ["PUBLIC"],
     deps = [
-        "//third_party/go:pgtype",
+        "//third_party/go:pgx.v5",
     ],
 )

@@ -75,8 +75,13 @@ func (c *PgStatIOUserIndexesCollector) scrape(dbClient *db.Client, ch chan<- pro
 		return fmt.Errorf("user table stats: %w", err)
 	}
 	for _, stat := range userIndexesStats {
-		ch <- prometheus.MustNewConstMetric(c.idxBlksRead, prometheus.CounterValue, float64(stat.IndexBlksRead), stat.Database, stat.SchemaName, stat.RelName, stat.IndexRelName)
-		ch <- prometheus.MustNewConstMetric(c.idxBlksHit, prometheus.CounterValue, float64(stat.IndexBlksHit), stat.Database, stat.SchemaName, stat.RelName, stat.IndexRelName)
+		labels := []string{stat.Database.String, stat.SchemaName.String, stat.RelName.String, stat.IndexRelName.String}
+		if stat.IndexBlksRead.Valid {
+			ch <- prometheus.MustNewConstMetric(c.idxBlksRead, prometheus.CounterValue, float64(stat.IndexBlksRead.Int64), labels...)
+		}
+		if stat.IndexBlksHit.Valid {
+			ch <- prometheus.MustNewConstMetric(c.idxBlksHit, prometheus.CounterValue, float64(stat.IndexBlksHit.Int64), labels...)
+		}
 	}
 	return nil
 }

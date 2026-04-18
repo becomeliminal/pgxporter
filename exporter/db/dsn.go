@@ -44,8 +44,9 @@ func addParametersToDSN(dsn string, opts Opts, postgresCompatible bool) string {
 		params = appendParam(params, "pool_max_conn_lifetime", fmt.Sprintf("%.0fs", opts.PoolMaxConnLifetime.Seconds()))
 		params = appendParam(params, "pool_max_conn_idle_time", fmt.Sprintf("%.0fs", opts.PoolMaxConnIdleTime.Seconds()))
 		params = appendParam(params, "pool_health_check_period", fmt.Sprintf("%.0fs", opts.PoolHealthCheckPeriod.Seconds()))
-		params = appendParam(params, "statement_cache_capacity", strconv.Itoa(opts.StatementCacheCapacity))
-		params = appendParam(params, "statement_cache_mode", opts.StatementCacheMode)
+		// statement_cache_capacity / statement_cache_mode were pgx v4 DSN params.
+		// Under pgx v5, StatementCacheMode is applied via ConnConfig.DefaultQueryExecMode
+		// in New(); StatementCacheCapacity is a no-op (v5 has no LRU cap).
 	}
 
 	var optionParams optionParameters

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/becomeliminal/pgxporter/exporter/db"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
 )
@@ -124,14 +125,20 @@ func (c *PgStatIOUserTableCollector) scrape(dbClient *db.Client, ch chan<- prome
 		return fmt.Errorf("user table stats: %w", err)
 	}
 	for _, stat := range userTableStats {
-		ch <- prometheus.MustNewConstMetric(c.heapBlksRead, prometheus.CounterValue, float64(stat.HeapBlksRead), stat.Database, stat.SchemaName, stat.RelName)
-		ch <- prometheus.MustNewConstMetric(c.heapBlksHit, prometheus.CounterValue, float64(stat.HeapBlksHit), stat.Database, stat.SchemaName, stat.RelName)
-		ch <- prometheus.MustNewConstMetric(c.idxBlksRead, prometheus.CounterValue, float64(stat.IndexBlksRead), stat.Database, stat.SchemaName, stat.RelName)
-		ch <- prometheus.MustNewConstMetric(c.idxBlksHit, prometheus.CounterValue, float64(stat.IndexBlksHit), stat.Database, stat.SchemaName, stat.RelName)
-		ch <- prometheus.MustNewConstMetric(c.toastBlksRead, prometheus.CounterValue, float64(stat.ToastBlksRead), stat.Database, stat.SchemaName, stat.RelName)
-		ch <- prometheus.MustNewConstMetric(c.toastBlksHit, prometheus.CounterValue, float64(stat.ToastBlksHit), stat.Database, stat.SchemaName, stat.RelName)
-		ch <- prometheus.MustNewConstMetric(c.tidxBlksRead, prometheus.CounterValue, float64(stat.TidxBlksRead), stat.Database, stat.SchemaName, stat.RelName)
-		ch <- prometheus.MustNewConstMetric(c.tidxBlksHit, prometheus.CounterValue, float64(stat.TidxBlksHit), stat.Database, stat.SchemaName, stat.RelName)
+		labels := []string{stat.Database.String, stat.SchemaName.String, stat.RelName.String}
+		emit := func(desc *prometheus.Desc, v pgtype.Int8) {
+			if v.Valid {
+				ch <- prometheus.MustNewConstMetric(desc, prometheus.CounterValue, float64(v.Int64), labels...)
+			}
+		}
+		emit(c.heapBlksRead, stat.HeapBlksRead)
+		emit(c.heapBlksHit, stat.HeapBlksHit)
+		emit(c.idxBlksRead, stat.IndexBlksRead)
+		emit(c.idxBlksHit, stat.IndexBlksHit)
+		emit(c.toastBlksRead, stat.ToastBlksRead)
+		emit(c.toastBlksHit, stat.ToastBlksHit)
+		emit(c.tidxBlksRead, stat.TidxBlksRead)
+		emit(c.tidxBlksHit, stat.TidxBlksHit)
 	}
 	return nil
 }

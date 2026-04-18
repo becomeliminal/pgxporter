@@ -71,7 +71,11 @@ func (c *PgLocksCollector) scrape(dbClient *db.Client, ch chan<- prometheus.Metr
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	for _, stat := range locks {
-		ch <- prometheus.MustNewConstMetric(c.count, prometheus.GaugeValue, float64(stat.Count), stat.Database, stat.DatName, stat.Mode)
+		if stat.Count.Valid {
+			ch <- prometheus.MustNewConstMetric(c.count, prometheus.GaugeValue,
+				float64(stat.Count.Int64),
+				stat.Database.String, stat.DatName.String, stat.Mode.String)
+		}
 	}
 	return nil
 }

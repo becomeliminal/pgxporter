@@ -82,9 +82,16 @@ func (c *PgStatUserIndexesCollector) scrape(dbClient *db.Client, ch chan<- prome
 		return fmt.Errorf("user indexes stats: %w", err)
 	}
 	for _, stat := range userIndexStats {
-		ch <- prometheus.MustNewConstMetric(c.idxScan, prometheus.CounterValue, float64(stat.IndexScan), stat.Database, stat.SchemaName, stat.RelName, stat.IndexRelName)
-		ch <- prometheus.MustNewConstMetric(c.idxTupRead, prometheus.CounterValue, float64(stat.IndexTupRead), stat.Database, stat.SchemaName, stat.RelName, stat.IndexRelName)
-		ch <- prometheus.MustNewConstMetric(c.idxTupFetch, prometheus.CounterValue, float64(stat.IndexTupFetch), stat.Database, stat.SchemaName, stat.RelName, stat.IndexRelName)
+		labels := []string{stat.Database.String, stat.SchemaName.String, stat.RelName.String, stat.IndexRelName.String}
+		if stat.IndexScan.Valid {
+			ch <- prometheus.MustNewConstMetric(c.idxScan, prometheus.CounterValue, float64(stat.IndexScan.Int64), labels...)
+		}
+		if stat.IndexTupRead.Valid {
+			ch <- prometheus.MustNewConstMetric(c.idxTupRead, prometheus.CounterValue, float64(stat.IndexTupRead.Int64), labels...)
+		}
+		if stat.IndexTupFetch.Valid {
+			ch <- prometheus.MustNewConstMetric(c.idxTupFetch, prometheus.CounterValue, float64(stat.IndexTupFetch.Int64), labels...)
+		}
 	}
 	return nil
 }

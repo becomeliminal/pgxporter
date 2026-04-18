@@ -133,7 +133,7 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	}
 	if err := group.Wait(); err != nil {
 		up = 0
-		fmt.Println(fmt.Sprintf("collecting: %w", err))
+		log.Errorf("collecting: %v", err)
 	}
 	ch <- prometheus.MustNewConstMetric(e.up.Desc(), prometheus.GaugeValue, float64(up))
 	ch <- e.totalScrapes

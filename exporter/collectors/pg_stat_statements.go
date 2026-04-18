@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/becomeliminal/pgxporter/exporter/db"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
 )
@@ -214,25 +215,40 @@ func (c *PgStatStatementsCollector) scrape(dbClient *db.Client, ch chan<- promet
 	start := time.Now()
 	log.Infof("statements lock aquire %dms", time.Now().Sub(start).Milliseconds())
 	for _, stat := range statementStats {
-		ch <- prometheus.MustNewConstMetric(c.calls, prometheus.CounterValue, float64(stat.Calls), stat.Database, stat.RolName, stat.DatName, strconv.Itoa(stat.QueryID), stat.Query)
-		ch <- prometheus.MustNewConstMetric(c.totalTimeSeconds, prometheus.CounterValue, stat.TotalTimeSeconds, stat.Database, stat.RolName, stat.DatName, strconv.Itoa(stat.QueryID), stat.Query)
-		ch <- prometheus.MustNewConstMetric(c.minTimeSeconds, prometheus.GaugeValue, stat.MinTimeSeconds, stat.Database, stat.RolName, stat.DatName, strconv.Itoa(stat.QueryID), stat.Query)
-		ch <- prometheus.MustNewConstMetric(c.maxTimeSeconds, prometheus.GaugeValue, stat.MaxTimeSeconds, stat.Database, stat.RolName, stat.DatName, strconv.Itoa(stat.QueryID), stat.Query)
-		ch <- prometheus.MustNewConstMetric(c.meanTimeSeconds, prometheus.GaugeValue, stat.MeanTimeSeconds, stat.Database, stat.RolName, stat.DatName, strconv.Itoa(stat.QueryID), stat.Query)
-		ch <- prometheus.MustNewConstMetric(c.stdDevTimeSeconds, prometheus.GaugeValue, stat.StdDevTimeSeconds, stat.Database, stat.RolName, stat.DatName, strconv.Itoa(stat.QueryID), stat.Query)
-		ch <- prometheus.MustNewConstMetric(c.rows, prometheus.CounterValue, float64(stat.Rows), stat.Database, stat.RolName, stat.DatName, strconv.Itoa(stat.QueryID), stat.Query)
-		ch <- prometheus.MustNewConstMetric(c.sharedBlksHit, prometheus.CounterValue, float64(stat.SharedBlksHit), stat.Database, stat.RolName, stat.DatName, strconv.Itoa(stat.QueryID), stat.Query)
-		ch <- prometheus.MustNewConstMetric(c.sharedBlksRead, prometheus.CounterValue, float64(stat.SharedBlksRead), stat.Database, stat.RolName, stat.DatName, strconv.Itoa(stat.QueryID), stat.Query)
-		ch <- prometheus.MustNewConstMetric(c.sharedBlksDirtied, prometheus.CounterValue, float64(stat.SharedBlksDirtied), stat.Database, stat.RolName, stat.DatName, strconv.Itoa(stat.QueryID), stat.Query)
-		ch <- prometheus.MustNewConstMetric(c.sharedBlksWritten, prometheus.CounterValue, float64(stat.SharedBlksWritten), stat.Database, stat.RolName, stat.DatName, strconv.Itoa(stat.QueryID), stat.Query)
-		ch <- prometheus.MustNewConstMetric(c.localBlksHit, prometheus.CounterValue, float64(stat.LocalBlksHit), stat.Database, stat.RolName, stat.DatName, strconv.Itoa(stat.QueryID), stat.Query)
-		ch <- prometheus.MustNewConstMetric(c.localBlksRead, prometheus.CounterValue, float64(stat.LocalBlksRead), stat.Database, stat.RolName, stat.DatName, strconv.Itoa(stat.QueryID), stat.Query)
-		ch <- prometheus.MustNewConstMetric(c.localBlksDirtied, prometheus.CounterValue, float64(stat.LocalBlksDirtied), stat.Database, stat.RolName, stat.DatName, strconv.Itoa(stat.QueryID), stat.Query)
-		ch <- prometheus.MustNewConstMetric(c.localBlksWritten, prometheus.CounterValue, float64(stat.LocalBlksWritten), stat.Database, stat.RolName, stat.DatName, strconv.Itoa(stat.QueryID), stat.Query)
-		ch <- prometheus.MustNewConstMetric(c.tempBlksRead, prometheus.CounterValue, float64(stat.TempBlksRead), stat.Database, stat.RolName, stat.DatName, strconv.Itoa(stat.QueryID), stat.Query)
-		ch <- prometheus.MustNewConstMetric(c.tempBlksWritten, prometheus.CounterValue, float64(stat.TempBlksWritten), stat.Database, stat.RolName, stat.DatName, strconv.Itoa(stat.QueryID), stat.Query)
-		ch <- prometheus.MustNewConstMetric(c.blkReadTimeSeconds, prometheus.CounterValue, float64(stat.BlkReadTimeSeconds), stat.Database, stat.RolName, stat.DatName, strconv.Itoa(stat.QueryID), stat.Query)
-		ch <- prometheus.MustNewConstMetric(c.blkWriteTimeSeconds, prometheus.CounterValue, float64(stat.BlkWriteTimeSeconds), stat.Database, stat.RolName, stat.DatName, strconv.Itoa(stat.QueryID), stat.Query)
+		queryID := ""
+		if stat.QueryID.Valid {
+			queryID = strconv.FormatInt(stat.QueryID.Int64, 10)
+		}
+		labels := []string{stat.Database.String, stat.RolName.String, stat.DatName.String, queryID, stat.Query.String}
+		emitInt := func(desc *prometheus.Desc, valueType prometheus.ValueType, v pgtype.Int8) {
+			if v.Valid {
+				ch <- prometheus.MustNewConstMetric(desc, valueType, float64(v.Int64), labels...)
+			}
+		}
+		emitFloat := func(desc *prometheus.Desc, valueType prometheus.ValueType, v pgtype.Float8) {
+			if v.Valid {
+				ch <- prometheus.MustNewConstMetric(desc, valueType, v.Float64, labels...)
+			}
+		}
+		emitInt(c.calls, prometheus.CounterValue, stat.Calls)
+		emitFloat(c.totalTimeSeconds, prometheus.CounterValue, stat.TotalTimeSeconds)
+		emitFloat(c.minTimeSeconds, prometheus.GaugeValue, stat.MinTimeSeconds)
+		emitFloat(c.maxTimeSeconds, prometheus.GaugeValue, stat.MaxTimeSeconds)
+		emitFloat(c.meanTimeSeconds, prometheus.GaugeValue, stat.MeanTimeSeconds)
+		emitFloat(c.stdDevTimeSeconds, prometheus.GaugeValue, stat.StdDevTimeSeconds)
+		emitInt(c.rows, prometheus.CounterValue, stat.Rows)
+		emitInt(c.sharedBlksHit, prometheus.CounterValue, stat.SharedBlksHit)
+		emitInt(c.sharedBlksRead, prometheus.CounterValue, stat.SharedBlksRead)
+		emitInt(c.sharedBlksDirtied, prometheus.CounterValue, stat.SharedBlksDirtied)
+		emitInt(c.sharedBlksWritten, prometheus.CounterValue, stat.SharedBlksWritten)
+		emitInt(c.localBlksHit, prometheus.CounterValue, stat.LocalBlksHit)
+		emitInt(c.localBlksRead, prometheus.CounterValue, stat.LocalBlksRead)
+		emitInt(c.localBlksDirtied, prometheus.CounterValue, stat.LocalBlksDirtied)
+		emitInt(c.localBlksWritten, prometheus.CounterValue, stat.LocalBlksWritten)
+		emitInt(c.tempBlksRead, prometheus.CounterValue, stat.TempBlksRead)
+		emitInt(c.tempBlksWritten, prometheus.CounterValue, stat.TempBlksWritten)
+		emitFloat(c.blkReadTimeSeconds, prometheus.CounterValue, stat.BlkReadTimeSeconds)
+		emitFloat(c.blkWriteTimeSeconds, prometheus.CounterValue, stat.BlkWriteTimeSeconds)
 	}
 	return nil
 }

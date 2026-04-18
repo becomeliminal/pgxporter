@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/georgysavva/scany/pgxscan"
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/georgysavva/scany/v2/pgxscan"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/becomeliminal/pgxporter/exporter/logging"
 )
@@ -35,8 +35,15 @@ func New(ctx context.Context, opts Opts) (*Client, error) {
 		return nil, err
 	}
 
+	switch opts.StatementCacheMode {
+	case "prepare":
+		poolConfig.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeCacheStatement
+	case "describe":
+		poolConfig.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeCacheDescribe
+	}
+
 	for i := 0; i <= opts.MaxConnectionRetries || opts.MaxConnectionRetries == -1; i++ {
-		pool, err = pgxpool.ConnectConfig(ctx, poolConfig)
+		pool, err = pgxpool.NewWithConfig(ctx, poolConfig)
 		if err != nil {
 			if err == ctx.Err() {
 				return nil, err
