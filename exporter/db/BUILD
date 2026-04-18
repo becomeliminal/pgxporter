@@ -16,7 +16,7 @@ go_library(
     deps = [
         "//exporter/db/model",
         "//exporter/logging",
-        "//third_party/go:pgx.v4",
-        "//third_party/go:scany",
+        "//third_party/go:pgx.v5",
+        "//third_party/go:scany.v2",
     ],
 )

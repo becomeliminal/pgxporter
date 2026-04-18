@@ -3,7 +3,7 @@ package(default_visibility = ["PUBLIC"])
 go_toolchain(
     name = "gotool",
     strip_srcs = True,
-    version = "1.17.6",
+    version = "1.23.4",
 )
 
 go_module(
@@ -271,38 +271,25 @@ go_module(
 )
 
 go_module(
-    name = "pgx.v4",
+    name = "pgx.v5",
+    install = ["..."],
+    licences = ["MIT"],
+    module = "github.com/jackc/pgx/v5",
+    version = "v5.4.3",
+    visibility = ["PUBLIC"],
+)
+
+go_module(
+    name = "scany.v2",
     install = [
-        ".",
-        "examples/chat",
-        "examples/todo",
-        "examples/url_shortener",
-        "internal/sanitize",
-        "log/kitlogadapter",
-        "log/log15adapter",
-        "log/logrusadapter",
-        "log/testingadapter",
-        "log/zapadapter",
-        "log/zerologadapter",
-        "pgxpool",
-        "stdlib",
+        "dbscan",
+        "pgxscan",
     ],
     licences = ["MIT"],
-    module = "github.com/jackc/pgx/v4",
-    version = "v4.13.0",
+    module = "github.com/georgysavva/scany/v2",
+    version = "v2.1.3",
     visibility = ["PUBLIC"],
-    deps = [
-        ":go-kit-log",
-        ":log15.v2",
-        ":logrus",
-        ":pgconn",
-        ":pgio",
-        ":pgproto3.v2",
-        ":pgtype",
-        ":puddle",
-        ":zap",
-        ":zerolog",
-    ],
+    deps = [":pgx.v5"],
 )
 
 go_module(
@@ -397,23 +384,6 @@ go_module(
     ],
 )
 
-go_module(
-    name = "scany",
-    install = [
-        "dbscan",
-        "pgxscan",
-    ],
-    licences = ["MIT"],
-    module = "github.com/georgysavva/scany",
-    version = "v0.2.9",
-    visibility = ["PUBLIC"],
-    deps = [
-        ":errors",
-        ":pgtype",
-        ":pgx.v4",
-        ":testify",
-    ],
-)
 
 go_module(
     name = "logfmt",

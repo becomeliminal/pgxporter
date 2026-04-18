@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/becomeliminal/pgxporter/exporter/db"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
 )
@@ -214,25 +215,36 @@ func (c *PgStatUserTableCollector) scrape(dbClient *db.Client, ch chan<- prometh
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	for _, stat := range userTableStats {
-		ch <- prometheus.MustNewConstMetric(c.seqScan, prometheus.CounterValue, float64(stat.SeqScan), stat.Database, stat.SchemaName, stat.RelName)
-		ch <- prometheus.MustNewConstMetric(c.seqTupRead, prometheus.CounterValue, float64(stat.SeqTupRead), stat.Database, stat.SchemaName, stat.RelName)
-		ch <- prometheus.MustNewConstMetric(c.idxScan, prometheus.CounterValue, float64(stat.IndexScan), stat.Database, stat.SchemaName, stat.RelName)
-		ch <- prometheus.MustNewConstMetric(c.idxTupFetch, prometheus.CounterValue, float64(stat.IndexTupFetch), stat.Database, stat.SchemaName, stat.RelName)
-		ch <- prometheus.MustNewConstMetric(c.nTupIns, prometheus.CounterValue, float64(stat.NTupInsert), stat.Database, stat.SchemaName, stat.RelName)
-		ch <- prometheus.MustNewConstMetric(c.nTupUpd, prometheus.CounterValue, float64(stat.NTupUpdate), stat.Database, stat.SchemaName, stat.RelName)
-		ch <- prometheus.MustNewConstMetric(c.nTupDel, prometheus.CounterValue, float64(stat.NTupDelete), stat.Database, stat.SchemaName, stat.RelName)
-		ch <- prometheus.MustNewConstMetric(c.nTupHotUpd, prometheus.CounterValue, float64(stat.NTupHotUpdate), stat.Database, stat.SchemaName, stat.RelName)
-		ch <- prometheus.MustNewConstMetric(c.nLiveTup, prometheus.GaugeValue, float64(stat.NLiveTup), stat.Database, stat.SchemaName, stat.RelName)
-		ch <- prometheus.MustNewConstMetric(c.nDeadTup, prometheus.GaugeValue, float64(stat.NDeadTup), stat.Database, stat.SchemaName, stat.RelName)
-		ch <- prometheus.MustNewConstMetric(c.nModSinceAnalyze, prometheus.GaugeValue, float64(stat.NModSinceAnalyze), stat.Database, stat.SchemaName, stat.RelName)
-		ch <- prometheus.MustNewConstMetric(c.lastVacuum, prometheus.GaugeValue, float64(stat.LastVacuum.Time.UnixMicro()), stat.Database, stat.SchemaName, stat.RelName)
-		ch <- prometheus.MustNewConstMetric(c.lastAutoVacuum, prometheus.GaugeValue, float64(stat.LastAutoVacuum.Time.UnixMicro()), stat.Database, stat.SchemaName, stat.RelName)
-		ch <- prometheus.MustNewConstMetric(c.lastAnalyze, prometheus.GaugeValue, float64(stat.LastAnalyze.Time.UnixMicro()), stat.Database, stat.SchemaName, stat.RelName)
-		ch <- prometheus.MustNewConstMetric(c.lastAutoAnalyze, prometheus.GaugeValue, float64(stat.LastAutoAnalyze.Time.UnixMicro()), stat.Database, stat.SchemaName, stat.RelName)
-		ch <- prometheus.MustNewConstMetric(c.vacuumCount, prometheus.CounterValue, float64(stat.VacuumCount), stat.Database, stat.SchemaName, stat.RelName)
-		ch <- prometheus.MustNewConstMetric(c.autoVacuumCount, prometheus.CounterValue, float64(stat.AutoVacuumCount), stat.Database, stat.SchemaName, stat.RelName)
-		ch <- prometheus.MustNewConstMetric(c.analyzeCount, prometheus.CounterValue, float64(stat.AnalyzeCount), stat.Database, stat.SchemaName, stat.RelName)
-		ch <- prometheus.MustNewConstMetric(c.autoAnalyzeCount, prometheus.CounterValue, float64(stat.AutoAnalyzeCount), stat.Database, stat.SchemaName, stat.RelName)
+		database, schemaname, relname := stat.Database.String, stat.SchemaName.String, stat.RelName.String
+		emitInt := func(desc *prometheus.Desc, valueType prometheus.ValueType, v pgtype.Int8) {
+			if v.Valid {
+				ch <- prometheus.MustNewConstMetric(desc, valueType, float64(v.Int64), database, schemaname, relname)
+			}
+		}
+		emitTime := func(desc *prometheus.Desc, v pgtype.Timestamptz) {
+			if v.Valid {
+				ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(v.Time.UnixMicro()), database, schemaname, relname)
+			}
+		}
+		emitInt(c.seqScan, prometheus.CounterValue, stat.SeqScan)
+		emitInt(c.seqTupRead, prometheus.CounterValue, stat.SeqTupRead)
+		emitInt(c.idxScan, prometheus.CounterValue, stat.IndexScan)
+		emitInt(c.idxTupFetch, prometheus.CounterValue, stat.IndexTupFetch)
+		emitInt(c.nTupIns, prometheus.CounterValue, stat.NTupInsert)
+		emitInt(c.nTupUpd, prometheus.CounterValue, stat.NTupUpdate)
+		emitInt(c.nTupDel, prometheus.CounterValue, stat.NTupDelete)
+		emitInt(c.nTupHotUpd, prometheus.CounterValue, stat.NTupHotUpdate)
+		emitInt(c.nLiveTup, prometheus.GaugeValue, stat.NLiveTup)
+		emitInt(c.nDeadTup, prometheus.GaugeValue, stat.NDeadTup)
+		emitInt(c.nModSinceAnalyze, prometheus.GaugeValue, stat.NModSinceAnalyze)
+		emitTime(c.lastVacuum, stat.LastVacuum)
+		emitTime(c.lastAutoVacuum, stat.LastAutoVacuum)
+		emitTime(c.lastAnalyze, stat.LastAnalyze)
+		emitTime(c.lastAutoAnalyze, stat.LastAutoAnalyze)
+		emitInt(c.vacuumCount, prometheus.CounterValue, stat.VacuumCount)
+		emitInt(c.autoVacuumCount, prometheus.CounterValue, stat.AutoVacuumCount)
+		emitInt(c.analyzeCount, prometheus.CounterValue, stat.AnalyzeCount)
+		emitInt(c.autoAnalyzeCount, prometheus.CounterValue, stat.AutoAnalyzeCount)
 	}
 	return nil
 }
