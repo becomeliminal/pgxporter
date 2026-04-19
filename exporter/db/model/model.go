@@ -10,35 +10,35 @@ import (
 //   - ChecksumFailures, ChecksumLastFailure: PG 12+
 //   - Session-time / sessions counters: PG 14+
 type PgStatDatabase struct {
-	Database                pgtype.Text        `db:"database"`
-	DatID                   pgtype.Int8        `db:"datid"`
-	DatName                 pgtype.Text        `db:"datname"`
-	NumBackends             pgtype.Int8        `db:"numbackends"`
-	XactCommit              pgtype.Int8        `db:"xact_commit"`
-	XactRollback            pgtype.Int8        `db:"xact_rollback"`
-	BlksRead                pgtype.Int8        `db:"blks_read"`
-	BlksHit                 pgtype.Int8        `db:"blks_hit"`
-	TupReturned             pgtype.Int8        `db:"tup_returned"`
-	TupFetched              pgtype.Int8        `db:"tup_fetched"`
-	TupInserted             pgtype.Int8        `db:"tup_inserted"`
-	TupUpdated              pgtype.Int8        `db:"tup_updated"`
-	TupDeleted              pgtype.Int8        `db:"tup_deleted"`
-	Conflicts               pgtype.Int8        `db:"conflicts"`
-	TempFiles               pgtype.Int8        `db:"temp_files"`
-	TempBytes               pgtype.Int8        `db:"temp_bytes"`
-	Deadlocks               pgtype.Int8        `db:"deadlocks"`
-	ChecksumFailures        pgtype.Int8        `db:"checksum_failures"`       // PG 12+
-	ChecksumLastFailure     pgtype.Timestamptz `db:"checksum_last_failure"`   // PG 12+
-	BlkReadTime             pgtype.Float8      `db:"blk_read_time"`
-	BlkWriteTime            pgtype.Float8      `db:"blk_write_time"`
-	SessionTime             pgtype.Float8      `db:"session_time"`             // PG 14+
-	ActiveTime              pgtype.Float8      `db:"active_time"`              // PG 14+
-	IdleInTransactionTime   pgtype.Float8      `db:"idle_in_transaction_time"` // PG 14+
-	Sessions                pgtype.Int8        `db:"sessions"`                 // PG 14+
-	SessionsAbandoned       pgtype.Int8        `db:"sessions_abandoned"`       // PG 14+
-	SessionsFatal           pgtype.Int8        `db:"sessions_fatal"`           // PG 14+
-	SessionsKilled          pgtype.Int8        `db:"sessions_killed"`          // PG 14+
-	StatsReset              pgtype.Timestamptz `db:"stats_reset"`
+	Database              pgtype.Text        `db:"database"`
+	DatID                 pgtype.Int8        `db:"datid"`
+	DatName               pgtype.Text        `db:"datname"`
+	NumBackends           pgtype.Int8        `db:"numbackends"`
+	XactCommit            pgtype.Int8        `db:"xact_commit"`
+	XactRollback          pgtype.Int8        `db:"xact_rollback"`
+	BlksRead              pgtype.Int8        `db:"blks_read"`
+	BlksHit               pgtype.Int8        `db:"blks_hit"`
+	TupReturned           pgtype.Int8        `db:"tup_returned"`
+	TupFetched            pgtype.Int8        `db:"tup_fetched"`
+	TupInserted           pgtype.Int8        `db:"tup_inserted"`
+	TupUpdated            pgtype.Int8        `db:"tup_updated"`
+	TupDeleted            pgtype.Int8        `db:"tup_deleted"`
+	Conflicts             pgtype.Int8        `db:"conflicts"`
+	TempFiles             pgtype.Int8        `db:"temp_files"`
+	TempBytes             pgtype.Int8        `db:"temp_bytes"`
+	Deadlocks             pgtype.Int8        `db:"deadlocks"`
+	ChecksumFailures      pgtype.Int8        `db:"checksum_failures"`     // PG 12+
+	ChecksumLastFailure   pgtype.Timestamptz `db:"checksum_last_failure"` // PG 12+
+	BlkReadTime           pgtype.Float8      `db:"blk_read_time"`
+	BlkWriteTime          pgtype.Float8      `db:"blk_write_time"`
+	SessionTime           pgtype.Float8      `db:"session_time"`             // PG 14+
+	ActiveTime            pgtype.Float8      `db:"active_time"`              // PG 14+
+	IdleInTransactionTime pgtype.Float8      `db:"idle_in_transaction_time"` // PG 14+
+	Sessions              pgtype.Int8        `db:"sessions"`                 // PG 14+
+	SessionsAbandoned     pgtype.Int8        `db:"sessions_abandoned"`       // PG 14+
+	SessionsFatal         pgtype.Int8        `db:"sessions_fatal"`           // PG 14+
+	SessionsKilled        pgtype.Int8        `db:"sessions_killed"`          // PG 14+
+	StatsReset            pgtype.Timestamptz `db:"stats_reset"`
 }
 
 // PgLock contains information on locks held.
