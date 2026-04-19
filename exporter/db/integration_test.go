@@ -251,6 +251,31 @@ func TestMatrix_SelectPgReplicationSlots(t *testing.T) {
 	}
 }
 
+// TestMatrix_SelectPgDatabaseSize verifies pg_database_size() executes and
+// returns at least one row for the built-in postgres database.
+func TestMatrix_SelectPgDatabaseSize(t *testing.T) {
+	for _, tc := range pgVersionsUnderTest {
+		t.Run(tc.name, func(t *testing.T) {
+			client := connectPG(t, tc.version)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			rows, err := client.SelectPgDatabaseSize(ctx)
+			if err != nil {
+				t.Fatalf("SelectPgDatabaseSize: %v", err)
+			}
+			if len(rows) == 0 {
+				t.Fatalf("PG %s: expected at least one pg_database_size row, got 0", tc.version)
+			}
+			for _, r := range rows {
+				if !r.Bytes.Valid || r.Bytes.Int64 <= 0 {
+					t.Errorf("PG %s: datname=%q has non-positive bytes %d", tc.version, r.DatName.String, r.Bytes.Int64)
+				}
+			}
+		})
+	}
+}
+
 // TestMatrix_SelectPgStatUserTables runs the version-gated SELECT against
 // a live server and asserts it completes without error. Regression guard
 // for column renames / schema drift when PG releases a new major.

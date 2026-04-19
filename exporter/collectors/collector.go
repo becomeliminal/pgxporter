@@ -67,5 +67,6 @@ func DefaultCollectors(dbClients []*db.Client) []Collector {
 		NewPgStatIOUserTableCollector(dbClients),
 		NewPgStatIOUserIndexesCollector(dbClients),
 		NewPgStatWalReceiverCollector(dbClients),
+		NewPgDatabaseSizeCollector(dbClients),
 	}
 }

@@ -159,6 +159,13 @@ type PgReplicationSlot struct {
 	Conflicting       pgtype.Bool   `db:"conflicting"`         // PG 16+
 }
 
+// PgDatabaseSize contains on-disk size per database (via pg_database_size()).
+type PgDatabaseSize struct {
+	Database pgtype.Text `db:"database"`
+	DatName  pgtype.Text `db:"datname"`
+	Bytes    pgtype.Int8 `db:"bytes"`
+}
+
 // PgLock contains information on locks held.
 type PgLock struct {
 	Database pgtype.Text `db:"database"`
