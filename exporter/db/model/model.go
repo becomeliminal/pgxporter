@@ -185,6 +185,21 @@ type PgStatWal struct {
 	StatsReset     pgtype.Timestamptz `db:"stats_reset"`
 }
 
+// PgStatProgressVacuum is one row per active VACUUM. Available on every
+// supported PG. The PG 17 dead-tuple column rename (max_dead_tuples →
+// max_dead_tuple_bytes etc.) is intentionally not exposed yet — callers
+// wanting dead-tuple details should query the view directly.
+type PgStatProgressVacuum struct {
+	Database         pgtype.Text `db:"database"`
+	DatName          pgtype.Text `db:"datname"`
+	RelID            pgtype.Text `db:"relid"`
+	Phase            pgtype.Text `db:"phase"`
+	HeapBlksTotal    pgtype.Int8 `db:"heap_blks_total"`
+	HeapBlksScanned  pgtype.Int8 `db:"heap_blks_scanned"`
+	HeapBlksVacuumed pgtype.Int8 `db:"heap_blks_vacuumed"`
+	IndexVacuumCount pgtype.Int8 `db:"index_vacuum_count"`
+}
+
 // PgLock is an aggregate lock-count row grouped by
 // (datname, mode, locktype, granted). Labels are low-cardinality:
 // mode ∈ {AccessShareLock, ...}, locktype ∈ {relation, tuple, transactionid, ...},
