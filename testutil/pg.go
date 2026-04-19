@@ -216,7 +216,7 @@ func downloadAndExtract(url, destRoot string) error {
 	if err != nil {
 		return fmt.Errorf("download: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("download: unexpected status %d from %s", resp.StatusCode, url)
 	}
@@ -225,7 +225,7 @@ func downloadAndExtract(url, destRoot string) error {
 	if err != nil {
 		return fmt.Errorf("download: gunzip: %w", err)
 	}
-	defer gz.Close()
+	defer func() { _ = gz.Close() }()
 
 	tr := tar.NewReader(gz)
 	for {
@@ -248,7 +248,7 @@ func downloadAndExtract(url, destRoot string) error {
 			if err := os.MkdirAll(target, 0o755); err != nil {
 				return fmt.Errorf("tar mkdir %s: %w", target, err)
 			}
-		case tar.TypeReg, tar.TypeRegA:
+		case tar.TypeReg:
 			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 				return fmt.Errorf("tar mkdir parent %s: %w", target, err)
 			}
@@ -258,7 +258,7 @@ func downloadAndExtract(url, destRoot string) error {
 				return fmt.Errorf("tar create %s: %w", target, err)
 			}
 			if _, err := io.Copy(f, tr); err != nil {
-				f.Close()
+				_ = f.Close()
 				return fmt.Errorf("tar write %s: %w", target, err)
 			}
 			if err := f.Close(); err != nil {
@@ -299,7 +299,7 @@ func pickPort() (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer l.Close()
+	defer func() { _ = l.Close() }()
 	return l.Addr().(*net.TCPAddr).Port, nil
 }
 
