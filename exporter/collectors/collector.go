@@ -16,6 +16,7 @@ const (
 	namespaceIO = "pg_statio"
 
 	activitySubSystem    = "activity"
+	databaseSubSystem    = "database"
 	locksSubSystem       = "locks"
 	statementsSubSystem  = "statements"
 	userTablesSubSystem  = "user_tables"
@@ -45,6 +46,7 @@ type Collector interface {
 func DefaultCollectors(dbClients []*db.Client) []Collector {
 	return []Collector{
 		NewPgStatActivityCollector(dbClients),
+		NewPgStatDatabaseCollector(dbClients),
 		NewPgLocksCollector(dbClients),
 		// Statement scrapes take way too long.
 		// NewPgStatStatementsCollector(dbClients),
