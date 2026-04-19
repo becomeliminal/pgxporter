@@ -27,6 +27,7 @@ const (
 	statementsSubSystem       = "statements"
 	userTablesSubSystem       = "user_tables"
 	userIndexesSubSystem      = "user_indexes"
+	walSubSystem              = "wal"
 	walReceiverSubSystem      = "wal_receiver"
 )
 
@@ -66,6 +67,7 @@ func DefaultCollectors(dbClients []*db.Client) []Collector {
 		NewPgStatUserIndexesCollector(dbClients),
 		NewPgStatIOUserTableCollector(dbClients),
 		NewPgStatIOUserIndexesCollector(dbClients),
+		NewPgStatWalCollector(dbClients),
 		NewPgStatWalReceiverCollector(dbClients),
 		NewPgDatabaseSizeCollector(dbClients),
 	}
