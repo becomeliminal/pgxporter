@@ -6,36 +6,43 @@ import (
 	"github.com/becomeliminal/pgxporter/exporter/db/model"
 )
 
-const sqlSelectPgLock = `
-SELECT 
-    current_database() as database,
-    pg_database.datname,
-    tmp.mode,
-    COALESCE(count,0) as count
-FROM
-(
-  VALUES ('accesssharelock'),
-         ('rowsharelock'),
-         ('rowexclusivelock'),
-         ('shareupdateexclusivelock'),
-         ('sharelock'),
-         ('sharerowexclusivelock'),
-         ('exclusivelock'),
-         ('accessexclusivelock'),
- ('sireadlock')
-) AS tmp(mode) CROSS JOIN pg_database
-LEFT JOIN
-  (SELECT database, lower(mode) AS mode,count(*) AS count
-  FROM pg_locks WHERE database IS NOT NULL
-  GROUP BY database, lower(mode)
-) AS tmp2
-ON tmp.mode=tmp2.mode and pg_database.oid = tmp2.database ORDER BY 1`
-
-// SelectPgLocks selects stats on locks held.
+// SelectPgLocks aggregates pg_locks by (datname, mode, locktype, granted).
+// Drops the legacy CROSS JOIN pattern (which emitted zeros for every
+// possible mode) — we only emit rows for lock modes actually observed.
 func (db *Client) SelectPgLocks(ctx context.Context) ([]*model.PgLock, error) {
-	pgLocks := []*model.PgLock{}
-	if err := db.Select(ctx, &pgLocks, sqlSelectPgLock); err != nil {
+	rows := []*model.PgLock{}
+	const sql = `SELECT
+		current_database() AS database,
+		COALESCE(pg_database.datname, '') AS datname,
+		mode,
+		locktype,
+		granted,
+		count(*) AS count
+	FROM pg_locks
+	LEFT JOIN pg_database ON pg_database.oid = pg_locks.database
+	GROUP BY pg_database.datname, mode, locktype, granted`
+	if err := db.Select(ctx, &rows, sql); err != nil {
 		return nil, err
 	}
-	return pgLocks, nil
+	return rows, nil
+}
+
+// SelectPgLocksBlockingSummary returns a scalar row summarising the
+// blocking-chain state across the cluster: the number of backends
+// currently waiting on another backend, and the total number of
+// (blocked, blocker) edges. Uses pg_blocking_pids() which is O(N²) in
+// backend count — callers wanting per-relation or per-chain detail
+// should query pg_locks directly.
+func (db *Client) SelectPgLocksBlockingSummary(ctx context.Context) ([]*model.PgLocksBlockingSummary, error) {
+	rows := []*model.PgLocksBlockingSummary{}
+	const sql = `SELECT
+		current_database() AS database,
+		COUNT(*) FILTER (WHERE cardinality(pg_blocking_pids(pid)) > 0)::bigint AS blocked_backends,
+		COALESCE(SUM(cardinality(pg_blocking_pids(pid))), 0)::bigint AS blocker_edges
+	FROM pg_stat_activity
+	WHERE state IS NOT NULL`
+	if err := db.Select(ctx, &rows, sql); err != nil {
+		return nil, err
+	}
+	return rows, nil
 }

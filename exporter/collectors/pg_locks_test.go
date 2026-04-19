@@ -11,66 +11,64 @@ import (
 
 func TestPgLocksCollector_Describe(t *testing.T) {
 	c := NewPgLocksCollector(nil)
-	descs := drainDescs(c.Describe)
-	if got, want := len(descs), 1; got != want {
-		t.Fatalf("Describe emitted %d descriptors, want %d", got, want)
+	if got, want := len(drainDescs(c.Describe)), 3; got != want {
+		t.Errorf("Describe emitted %d, want %d", got, want)
 	}
 }
 
 func TestPgLocksCollector_Emit(t *testing.T) {
-	tests := []struct {
-		name  string
-		rows  []*model.PgLock
-		wantN int
-	}{
+	c := NewPgLocksCollector(nil)
+	locks := []*model.PgLock{
 		{
-			name: "two valid rows emit two metrics",
-			rows: []*model.PgLock{
-				{
-					Database: text("postgres"),
-					DatName:  text("postgres"),
-					Mode:     text("AccessShareLock"),
-					Count:    int8v(5),
-				},
-				{
-					Database: text("postgres"),
-					DatName:  text("postgres"),
-					Mode:     text("ExclusiveLock"),
-					Count:    int8v(1),
-				},
-			},
-			wantN: 2,
+			Database: text("postgres"), DatName: text("postgres"),
+			Mode: text("AccessShareLock"), LockType: text("relation"),
+			Granted: pgtype.Bool{Bool: true, Valid: true},
+			Count:   int8v(4),
 		},
 		{
-			name: "NULL count row is skipped",
-			rows: []*model.PgLock{
-				{
-					Database: text("postgres"),
-					DatName:  text("postgres"),
-					Mode:     text("AccessShareLock"),
-					Count:    pgtype.Int8{}, // Valid: false
-				},
-			},
-			wantN: 0,
-		},
-		{
-			name: "mixed valid and NULL — only valid emits",
-			rows: []*model.PgLock{
-				{Database: text("a"), DatName: text("a"), Mode: text("m"), Count: int8v(3)},
-				{Database: text("b"), DatName: text("b"), Mode: text("m"), Count: pgtype.Int8{}},
-			},
-			wantN: 1,
+			Database: text("postgres"), DatName: text("postgres"),
+			Mode: text("ExclusiveLock"), LockType: text("tuple"),
+			Granted: pgtype.Bool{Bool: false, Valid: true},
+			Count:   int8v(1),
 		},
 	}
+	summary := []*model.PgLocksBlockingSummary{{
+		Database:        text("postgres"),
+		BlockedBackends: int8v(1),
+		BlockerEdges:    int8v(2),
+	}}
+	ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit(locks, summary, ch) })
+	// 2 lock-count rows + 2 summary gauges = 4
+	if got, want := len(ms), 4; got != want {
+		t.Errorf("emit produced %d metrics, want %d", got, want)
+	}
+}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			c := NewPgLocksCollector(nil)
-			metrics := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit(tc.rows, ch) })
-			if got := len(metrics); got != tc.wantN {
-				t.Errorf("emit produced %d metrics, want %d", got, tc.wantN)
-			}
-		})
+func TestPgLocksCollector_Emit_NoLocksNoBlocking(t *testing.T) {
+	c := NewPgLocksCollector(nil)
+	summary := []*model.PgLocksBlockingSummary{{
+		Database:        text("postgres"),
+		BlockedBackends: int8v(0),
+		BlockerEdges:    int8v(0),
+	}}
+	ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit(nil, summary, ch) })
+	// 0 lock rows + 2 zero-valued summary gauges (still Valid) = 2
+	if got, want := len(ms), 2; got != want {
+		t.Errorf("emit produced %d metrics, want %d", got, want)
+	}
+}
+
+func TestPgLocksCollector_Emit_NullCountSkipped(t *testing.T) {
+	c := NewPgLocksCollector(nil)
+	locks := []*model.PgLock{{
+		Database: text("postgres"), DatName: text("postgres"),
+		Mode: text("AccessShareLock"), LockType: text("relation"),
+		Granted: pgtype.Bool{Bool: true, Valid: true},
+		Count:   pgtype.Int8{},
+	}}
+	ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit(locks, nil, ch) })
+	if got := len(ms); got != 0 {
+		t.Errorf("emit produced %d metrics, want 0 (NULL count skipped)", got)
 	}
 }
 

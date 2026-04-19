@@ -185,12 +185,25 @@ type PgStatWal struct {
 	StatsReset     pgtype.Timestamptz `db:"stats_reset"`
 }
 
-// PgLock contains information on locks held.
+// PgLock is an aggregate lock-count row grouped by
+// (datname, mode, locktype, granted). Labels are low-cardinality:
+// mode ∈ {AccessShareLock, ...}, locktype ∈ {relation, tuple, transactionid, ...},
+// granted ∈ {true, false}.
 type PgLock struct {
 	Database pgtype.Text `db:"database"`
 	DatName  pgtype.Text `db:"datname"`
 	Mode     pgtype.Text `db:"mode"`
+	LockType pgtype.Text `db:"locktype"`
+	Granted  pgtype.Bool `db:"granted"`
 	Count    pgtype.Int8 `db:"count"`
+}
+
+// PgLocksBlockingSummary is the blocking-chain summary from
+// pg_stat_activity + pg_blocking_pids(). Scalar per database.
+type PgLocksBlockingSummary struct {
+	Database        pgtype.Text `db:"database"`
+	BlockedBackends pgtype.Int8 `db:"blocked_backends"`
+	BlockerEdges    pgtype.Int8 `db:"blocker_edges"`
 }
 
 // PgStatActivity aggregates pg_stat_activity rows per
