@@ -1,0 +1,64 @@
+name: Integration
+
+# Integration tests spin up real Postgres servers (downloaded from
+# becomeliminal/postgres release assets, ~10MB each) and run the
+# version-gated SQL + scan code against them. Slow-ish — not gated on
+# every PR.
+#
+# Runs:
+#   - on push to main (regression guard for merged changes)
+#   - weekly on Sunday (catches PG point-release drift)
+#   - manually via workflow_dispatch
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 0" # Sundays 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    name: pg-${{ matrix.pg }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pg:
+          - "13.22"
+          - "14.19"
+          - "15.14"
+          - "16.10"
+          - "17.6"
+          - "18.0"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      # Cache the downloaded Postgres tarballs (~10MB each × 6 versions).
+      - name: Cache postgres binaries
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pgxporter/postgres
+          key: pg-binaries-${{ matrix.pg }}-v0.0.5
+
+      - name: Go module cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: ${{ runner.os }}-go-
+
+      - name: Run integration tests for PG ${{ matrix.pg }}
+        run: >-
+          go test -tags integration -v -timeout 5m
+          -run "TestMatrix_.*/$(echo "PG_${{ matrix.pg }}" | tr '.' '_')"
+          ./exporter/db/...
