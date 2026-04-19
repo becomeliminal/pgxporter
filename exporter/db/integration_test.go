@@ -161,6 +161,31 @@ func TestMatrix_SelectPgStatCheckpointer(t *testing.T) {
 	}
 }
 
+// TestMatrix_SelectPgStatArchiver verifies the SELECT executes cleanly on
+// every supported PG version and returns the single cluster-wide row.
+func TestMatrix_SelectPgStatArchiver(t *testing.T) {
+	for _, tc := range pgVersionsUnderTest {
+		t.Run(tc.name, func(t *testing.T) {
+			client := connectPG(t, tc.version)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			rows, err := client.SelectPgStatArchiver(ctx)
+			if err != nil {
+				t.Fatalf("SelectPgStatArchiver: %v", err)
+			}
+			if len(rows) != 1 {
+				t.Fatalf("PG %s: expected exactly 1 pg_stat_archiver row, got %d", tc.version, len(rows))
+			}
+			// Counters are always non-NULL; last_*_time may be NULL on a fresh
+			// server with no archive_command configured. Only assert the shape.
+			if !rows[0].ArchivedCount.Valid || !rows[0].FailedCount.Valid {
+				t.Errorf("PG %s: archived_count / failed_count should be Valid", tc.version)
+			}
+		})
+	}
+}
+
 // TestMatrix_SelectPgStatUserTables runs the version-gated SELECT against
 // a live server and asserts it completes without error. Regression guard
 // for column renames / schema drift when PG releases a new major.
