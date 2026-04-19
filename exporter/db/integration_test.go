@@ -135,6 +135,32 @@ func TestMatrix_SelectPgStatBgwriter(t *testing.T) {
 	}
 }
 
+// TestMatrix_SelectPgStatCheckpointer verifies the PG 17+ view returns rows
+// on 17/18 and cleanly returns nothing on older servers.
+func TestMatrix_SelectPgStatCheckpointer(t *testing.T) {
+	for _, tc := range pgVersionsUnderTest {
+		t.Run(tc.name, func(t *testing.T) {
+			client := connectPG(t, tc.version)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			rows, err := client.SelectPgStatCheckpointer(ctx)
+			if err != nil {
+				t.Fatalf("SelectPgStatCheckpointer: %v", err)
+			}
+			if client.AtLeast(17, 0) {
+				if len(rows) == 0 {
+					t.Fatalf("PG %s: expected 1 pg_stat_checkpointer row, got 0", tc.version)
+				}
+			} else {
+				if len(rows) != 0 {
+					t.Fatalf("PG %s: expected 0 rows (view does not exist pre-17), got %d", tc.version, len(rows))
+				}
+			}
+		})
+	}
+}
+
 // TestMatrix_SelectPgStatUserTables runs the version-gated SELECT against
 // a live server and asserts it completes without error. Regression guard
 // for column renames / schema drift when PG releases a new major.
