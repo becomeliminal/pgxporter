@@ -10,6 +10,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/becomeliminal/pgxporter/exporter/db"
+	"github.com/becomeliminal/pgxporter/exporter/db/model"
 )
 
 // PgLocksCollector collects from pg_locks.
@@ -64,6 +65,18 @@ func (c *PgLocksCollector) scrape(ctx context.Context, dbClient *db.Client, ch c
 	}
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
+	c.emit(locks, ch)
+	return nil
+}
+
+// emit converts a slice of scanned pg_locks rows into Prometheus metrics on ch.
+// Rows with Count.Valid == false are skipped — a Valid-check is the standard
+// pattern across this package for NULL-safe emission.
+//
+// Separated from scrape so it can be unit-tested without a live database:
+// construct synthetic model rows (including NULL-valued ones), call emit,
+// and assert on what lands on the channel.
+func (c *PgLocksCollector) emit(locks []*model.PgLock, ch chan<- prometheus.Metric) {
 	for _, stat := range locks {
 		if stat.Count.Valid {
 			ch <- prometheus.MustNewConstMetric(c.count, prometheus.GaugeValue,
@@ -71,5 +84,4 @@ func (c *PgLocksCollector) scrape(ctx context.Context, dbClient *db.Client, ch c
 				stat.Database.String, stat.DatName.String, stat.Mode.String)
 		}
 	}
-	return nil
 }

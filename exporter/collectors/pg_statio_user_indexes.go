@@ -9,6 +9,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/becomeliminal/pgxporter/exporter/db"
+	"github.com/becomeliminal/pgxporter/exporter/db/model"
 )
 
 // PgStatIOUserIndexesCollector collects from pg_statio_user_indexes.
@@ -66,9 +67,16 @@ func (c *PgStatIOUserIndexesCollector) Scrape(ctx context.Context, ch chan<- pro
 func (c *PgStatIOUserIndexesCollector) scrape(ctx context.Context, dbClient *db.Client, ch chan<- prometheus.Metric) error {
 	userIndexesStats, err := dbClient.SelectPgStatIOUserIndexes(ctx)
 	if err != nil {
-		return fmt.Errorf("user table stats: %w", err)
+		return fmt.Errorf("user index stats: %w", err)
 	}
-	for _, stat := range userIndexesStats {
+	c.emit(userIndexesStats, ch)
+	return nil
+}
+
+// emit turns scanned pg_statio_user_indexes rows into metrics, skipping NULL
+// counter columns. Separated from scrape for unit-test coverage.
+func (c *PgStatIOUserIndexesCollector) emit(stats []*model.PgStatIOUserIndex, ch chan<- prometheus.Metric) {
+	for _, stat := range stats {
 		labels := []string{stat.Database.String, stat.SchemaName.String, stat.RelName.String, stat.IndexRelName.String}
 		if stat.IndexBlksRead.Valid {
 			ch <- prometheus.MustNewConstMetric(c.idxBlksRead, prometheus.CounterValue, float64(stat.IndexBlksRead.Int64), labels...)
@@ -77,5 +85,4 @@ func (c *PgStatIOUserIndexesCollector) scrape(ctx context.Context, dbClient *db.
 			ch <- prometheus.MustNewConstMetric(c.idxBlksHit, prometheus.CounterValue, float64(stat.IndexBlksHit.Int64), labels...)
 		}
 	}
-	return nil
 }

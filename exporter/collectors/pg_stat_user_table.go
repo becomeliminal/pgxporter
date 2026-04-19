@@ -11,6 +11,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/becomeliminal/pgxporter/exporter/db"
+	"github.com/becomeliminal/pgxporter/exporter/db/model"
 )
 
 // PgStatUserTableCollector collects from pg_stat_user_tables.
@@ -208,7 +209,18 @@ func (c *PgStatUserTableCollector) scrape(ctx context.Context, dbClient *db.Clie
 	}
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	for _, stat := range userTableStats {
+	c.emit(userTableStats, ch)
+	return nil
+}
+
+// emit turns scanned pg_stat_user_tables rows into metrics, skipping NULL
+// counter or timestamp columns. Partitioned-table-parent rows from PG 17+
+// have NULL counters — those were the LIM-925 bug the pgtype refactor fixed
+// — so this Valid-gating is load-bearing.
+//
+// Separated from scrape for unit-test coverage.
+func (c *PgStatUserTableCollector) emit(stats []*model.PgStatUserTable, ch chan<- prometheus.Metric) {
+	for _, stat := range stats {
 		database, schemaname, relname := stat.Database.String, stat.SchemaName.String, stat.RelName.String
 		emitInt := func(desc *prometheus.Desc, valueType prometheus.ValueType, v pgtype.Int8) {
 			if v.Valid {
@@ -240,5 +252,4 @@ func (c *PgStatUserTableCollector) scrape(ctx context.Context, dbClient *db.Clie
 		emitInt(c.analyzeCount, prometheus.CounterValue, stat.AnalyzeCount)
 		emitInt(c.autoAnalyzeCount, prometheus.CounterValue, stat.AutoAnalyzeCount)
 	}
-	return nil
 }

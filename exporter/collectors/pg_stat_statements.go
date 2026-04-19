@@ -11,6 +11,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/becomeliminal/pgxporter/exporter/db"
+	"github.com/becomeliminal/pgxporter/exporter/db/model"
 )
 
 // PgStatStatementsCollector collects from pg_stat_statements.
@@ -206,9 +207,14 @@ func (c *PgStatStatementsCollector) scrape(ctx context.Context, dbClient *db.Cli
 	if err != nil {
 		return fmt.Errorf("statement stats: %w", err)
 	}
-	start := time.Now()
-	log.Infof("statements lock acquire %dms", time.Now().Sub(start).Milliseconds())
-	for _, stat := range statementStats {
+	c.emit(statementStats, ch)
+	return nil
+}
+
+// emit turns scanned pg_stat_statements rows into metrics, skipping NULL
+// counter / timing columns. Separated from scrape for unit-test coverage.
+func (c *PgStatStatementsCollector) emit(stats []*model.PgStatStatement, ch chan<- prometheus.Metric) {
+	for _, stat := range stats {
 		queryID := ""
 		if stat.QueryID.Valid {
 			queryID = strconv.FormatInt(stat.QueryID.Int64, 10)
@@ -244,5 +250,4 @@ func (c *PgStatStatementsCollector) scrape(ctx context.Context, dbClient *db.Cli
 		emitFloat(c.blkReadTimeSeconds, prometheus.CounterValue, stat.BlkReadTimeSeconds)
 		emitFloat(c.blkWriteTimeSeconds, prometheus.CounterValue, stat.BlkWriteTimeSeconds)
 	}
-	return nil
 }

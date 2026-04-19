@@ -10,6 +10,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/becomeliminal/pgxporter/exporter/db"
+	"github.com/becomeliminal/pgxporter/exporter/db/model"
 )
 
 // PgStatActivityCollector collects from pg_stat_user_tables.
@@ -72,7 +73,15 @@ func (c *PgStatActivityCollector) scrape(ctx context.Context, dbClient *db.Clien
 	}
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	for _, stat := range activityStats {
+	c.emit(activityStats, ch)
+	return nil
+}
+
+// emit converts a slice of pg_stat_activity aggregation rows into metrics on ch.
+// Valid gate per-field so partial-NULL rows still contribute what they can.
+// Separated from scrape so it can be unit-tested without a live database.
+func (c *PgStatActivityCollector) emit(stats []*model.PgStatActivity, ch chan<- prometheus.Metric) {
+	for _, stat := range stats {
 		if stat.Count.Valid {
 			ch <- prometheus.MustNewConstMetric(c.activityCount, prometheus.GaugeValue,
 				float64(stat.Count.Int64),
@@ -84,5 +93,4 @@ func (c *PgStatActivityCollector) scrape(ctx context.Context, dbClient *db.Clien
 				stat.Database.String, stat.DatName.String, stat.State.String)
 		}
 	}
-	return nil
 }

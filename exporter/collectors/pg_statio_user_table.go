@@ -10,6 +10,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/becomeliminal/pgxporter/exporter/db"
+	"github.com/becomeliminal/pgxporter/exporter/db/model"
 )
 
 // PgStatIOUserTableCollector collects from pg_statio_user_tables.
@@ -118,7 +119,14 @@ func (c *PgStatIOUserTableCollector) scrape(ctx context.Context, dbClient *db.Cl
 	if err != nil {
 		return fmt.Errorf("user table stats: %w", err)
 	}
-	for _, stat := range userTableStats {
+	c.emit(userTableStats, ch)
+	return nil
+}
+
+// emit turns scanned pg_statio_user_tables rows into metrics, skipping NULL
+// counter columns. Separated from scrape for unit-test coverage.
+func (c *PgStatIOUserTableCollector) emit(stats []*model.PgStatIOUserTable, ch chan<- prometheus.Metric) {
+	for _, stat := range stats {
 		labels := []string{stat.Database.String, stat.SchemaName.String, stat.RelName.String}
 		emit := func(desc *prometheus.Desc, v pgtype.Int8) {
 			if v.Valid {
@@ -134,5 +142,4 @@ func (c *PgStatIOUserTableCollector) scrape(ctx context.Context, dbClient *db.Cl
 		emit(c.tidxBlksRead, stat.TidxBlksRead)
 		emit(c.tidxBlksHit, stat.TidxBlksHit)
 	}
-	return nil
 }
