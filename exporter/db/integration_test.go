@@ -343,6 +343,35 @@ func TestMatrix_SelectPgStatActivity(t *testing.T) {
 	}
 }
 
+// TestMatrix_SelectPgStatProgress verifies every progress-view SELECT
+// executes cleanly. Pre-13 servers return nil for analyze/basebackup,
+// pre-14 returns nil for copy. An idle cluster has zero rows for all.
+func TestMatrix_SelectPgStatProgress(t *testing.T) {
+	for _, tc := range pgVersionsUnderTest {
+		t.Run(tc.name, func(t *testing.T) {
+			client := connectPG(t, tc.version)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			if _, err := client.SelectPgStatProgressAnalyze(ctx); err != nil {
+				t.Errorf("analyze: %v", err)
+			}
+			if _, err := client.SelectPgStatProgressBasebackup(ctx); err != nil {
+				t.Errorf("basebackup: %v", err)
+			}
+			if _, err := client.SelectPgStatProgressCopy(ctx); err != nil {
+				t.Errorf("copy: %v", err)
+			}
+			if _, err := client.SelectPgStatProgressCreateIndex(ctx); err != nil {
+				t.Errorf("create_index: %v", err)
+			}
+			if _, err := client.SelectPgStatProgressCluster(ctx); err != nil {
+				t.Errorf("cluster: %v", err)
+			}
+		})
+	}
+}
+
 // TestMatrix_SelectPgLocks verifies the aggregate SELECT executes and
 // returns at least one row (the exporter's own backend always holds
 // AccessShareLock on catalog relations).
