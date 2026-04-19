@@ -22,6 +22,31 @@ type Client struct {
 	opts      Opts
 	pool      *pgxpool.Pool
 	txOptions pgx.TxOptions
+
+	// ServerVersionNum is the Postgres server's numeric version (e.g. 170006
+	// for PG 17.6) as returned by SHOW server_version_num. Cached once at
+	// [New] time. Zero if the probe failed (shouldn't happen for a healthy
+	// connection; collectors that need version gating should treat zero as
+	// "unknown — fall back to the most conservative SQL").
+	ServerVersionNum int
+}
+
+// AtLeast reports whether the connected Postgres server is at least
+// the given major.minor version. Returns false if version detection
+// failed at startup.
+//
+// Example:
+//
+//	if client.AtLeast(17, 0) {
+//	    // include columns added in PG 17
+//	}
+func (c *Client) AtLeast(major, minor int) bool {
+	if c.ServerVersionNum == 0 {
+		return false
+	}
+	// Postgres encodes server_version_num as major*10000 + minor
+	// (e.g. 16.4 → 160004). Match that exactly.
+	return c.ServerVersionNum >= major*10000+minor
 }
 
 // New instantiates and returns a new DB.
@@ -58,9 +83,28 @@ func New(ctx context.Context, opts Opts) (*Client, error) {
 			pool: pool,
 		}
 		client.setTxOptions(opts)
+		if err := client.probeServerVersion(ctx); err != nil {
+			// Non-fatal: a collector that version-gates will treat zero as
+			// "unknown". Log and keep going.
+			log.Warnf("could not detect Postgres server version: %v", err)
+		}
 		return client, nil
 	}
 	return nil, err
+}
+
+// probeServerVersion reads server_version_num once and caches the result.
+//
+// Uses SELECT … ::int (rather than SHOW) so pgx sees an int4 column directly
+// instead of text, avoiding a client-side parse.
+func (c *Client) probeServerVersion(ctx context.Context) error {
+	var v int
+	if err := c.pool.QueryRow(ctx, "SELECT current_setting('server_version_num')::int").Scan(&v); err != nil {
+		return err
+	}
+	c.ServerVersionNum = v
+	log.Infof("connected to Postgres %d.%d (server_version_num=%d)", v/10000, v%10000, v)
+	return nil
 }
 
 func (c *Client) setTxOptions(opts Opts) {
