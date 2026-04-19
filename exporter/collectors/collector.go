@@ -12,20 +12,22 @@ import (
 var log = logging.NewLogger()
 
 const (
-	namespace   = "pg_stat"
-	namespaceIO = "pg_statio"
+	namespace      = "pg_stat"
+	namespaceIO    = "pg_statio"
+	namespaceRawPg = "pg"
 
-	activitySubSystem     = "activity"
-	archiverSubSystem     = "archiver"
-	bgwriterSubSystem     = "bgwriter"
-	checkpointerSubSystem = "checkpointer"
-	databaseSubSystem     = "database"
-	locksSubSystem        = "locks"
-	replicationSubSystem  = "replication"
-	statementsSubSystem   = "statements"
-	userTablesSubSystem   = "user_tables"
-	userIndexesSubSystem  = "user_indexes"
-	walReceiverSubSystem  = "wal_receiver"
+	activitySubSystem         = "activity"
+	archiverSubSystem         = "archiver"
+	bgwriterSubSystem         = "bgwriter"
+	checkpointerSubSystem     = "checkpointer"
+	databaseSubSystem         = "database"
+	locksSubSystem            = "locks"
+	replicationSubSystem      = "replication"
+	replicationSlotsSubSystem = "replication_slots"
+	statementsSubSystem       = "statements"
+	userTablesSubSystem       = "user_tables"
+	userIndexesSubSystem      = "user_indexes"
+	walReceiverSubSystem      = "wal_receiver"
 )
 
 // Collector is a scraper for one Postgres statistics view.
@@ -57,6 +59,7 @@ func DefaultCollectors(dbClients []*db.Client) []Collector {
 		NewPgStatDatabaseCollector(dbClients),
 		NewPgLocksCollector(dbClients),
 		NewPgStatReplicationCollector(dbClients),
+		NewPgReplicationSlotsCollector(dbClients),
 		// Statement scrapes take way too long.
 		// NewPgStatStatementsCollector(dbClients),
 		NewPgStatUserTableCollector(dbClients),

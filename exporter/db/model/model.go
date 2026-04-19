@@ -134,6 +134,31 @@ type PgStatWalReceiver struct {
 	SenderHost           pgtype.Text        `db:"sender_host"`
 }
 
+// PgReplicationSlot contains per-slot state from pg_replication_slots.
+//
+// Version-gated:
+//   - WalStatus, SafeWalSizeBytes: PG 13+
+//   - Conflicting: PG 16+
+//
+// RetainedWalBytes is computed primary-side against pg_current_wal_lsn();
+// NULL on standbys (CASE WHEN pg_is_in_recovery()). Physical and logical
+// slots share the view — SlotType differentiates them.
+type PgReplicationSlot struct {
+	Database          pgtype.Text   `db:"database"`
+	SlotName          pgtype.Text   `db:"slot_name"`
+	Plugin            pgtype.Text   `db:"plugin"`
+	SlotType          pgtype.Text   `db:"slot_type"`
+	DatName           pgtype.Text   `db:"datname"`
+	Active            pgtype.Bool   `db:"active"`
+	Temporary         pgtype.Bool   `db:"temporary"`
+	RestartLsnBytes   pgtype.Float8 `db:"restart_lsn_bytes"`
+	ConfirmedFlushLsn pgtype.Float8 `db:"confirmed_flush_lsn_bytes"`
+	RetainedWalBytes  pgtype.Float8 `db:"retained_wal_bytes"`
+	WalStatus         pgtype.Text   `db:"wal_status"`          // PG 13+
+	SafeWalSizeBytes  pgtype.Int8   `db:"safe_wal_size_bytes"` // PG 13+
+	Conflicting       pgtype.Bool   `db:"conflicting"`         // PG 16+
+}
+
 // PgLock contains information on locks held.
 type PgLock struct {
 	Database pgtype.Text `db:"database"`
