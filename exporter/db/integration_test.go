@@ -343,6 +343,55 @@ func TestMatrix_SelectPgStatActivity(t *testing.T) {
 	}
 }
 
+// TestMatrix_SelectPgLocks verifies the aggregate SELECT executes and
+// returns at least one row (the exporter's own backend always holds
+// AccessShareLock on catalog relations).
+func TestMatrix_SelectPgLocks(t *testing.T) {
+	for _, tc := range pgVersionsUnderTest {
+		t.Run(tc.name, func(t *testing.T) {
+			client := connectPG(t, tc.version)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			rows, err := client.SelectPgLocks(ctx)
+			if err != nil {
+				t.Fatalf("SelectPgLocks: %v", err)
+			}
+			if len(rows) == 0 {
+				t.Fatalf("PG %s: expected at least one pg_locks bucket, got 0", tc.version)
+			}
+			for _, r := range rows {
+				if !r.Mode.Valid || !r.LockType.Valid || !r.Granted.Valid {
+					t.Errorf("PG %s: bucket missing label field", tc.version)
+				}
+			}
+		})
+	}
+}
+
+// TestMatrix_SelectPgLocksBlockingSummary verifies pg_blocking_pids() runs
+// cleanly and returns one row. A quiet PG has blocked_backends=0.
+func TestMatrix_SelectPgLocksBlockingSummary(t *testing.T) {
+	for _, tc := range pgVersionsUnderTest {
+		t.Run(tc.name, func(t *testing.T) {
+			client := connectPG(t, tc.version)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			rows, err := client.SelectPgLocksBlockingSummary(ctx)
+			if err != nil {
+				t.Fatalf("SelectPgLocksBlockingSummary: %v", err)
+			}
+			if len(rows) != 1 {
+				t.Fatalf("PG %s: expected exactly 1 blocking-summary row, got %d", tc.version, len(rows))
+			}
+			if !rows[0].BlockedBackends.Valid || !rows[0].BlockerEdges.Valid {
+				t.Errorf("PG %s: summary fields should be Valid", tc.version)
+			}
+		})
+	}
+}
+
 // TestMatrix_SelectPgStatUserTables runs the version-gated SELECT against
 // a live server and asserts it completes without error. Regression guard
 // for column renames / schema drift when PG releases a new major.
