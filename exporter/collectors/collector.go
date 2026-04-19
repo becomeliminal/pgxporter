@@ -16,20 +16,25 @@ const (
 	namespaceIO    = "pg_statio"
 	namespaceRawPg = "pg"
 
-	activitySubSystem         = "activity"
-	archiverSubSystem         = "archiver"
-	bgwriterSubSystem         = "bgwriter"
-	checkpointerSubSystem     = "checkpointer"
-	databaseSubSystem         = "database"
-	locksSubSystem            = "locks"
-	progressVacuumSubSystem   = "progress_vacuum"
-	replicationSubSystem      = "replication"
-	replicationSlotsSubSystem = "replication_slots"
-	statementsSubSystem       = "statements"
-	userTablesSubSystem       = "user_tables"
-	userIndexesSubSystem      = "user_indexes"
-	walSubSystem              = "wal"
-	walReceiverSubSystem      = "wal_receiver"
+	activitySubSystem            = "activity"
+	archiverSubSystem            = "archiver"
+	bgwriterSubSystem            = "bgwriter"
+	checkpointerSubSystem        = "checkpointer"
+	databaseSubSystem            = "database"
+	locksSubSystem               = "locks"
+	progressAnalyzeSubSystem     = "progress_analyze"
+	progressBasebackupSubSystem  = "progress_basebackup"
+	progressClusterSubSystem     = "progress_cluster"
+	progressCopySubSystem        = "progress_copy"
+	progressCreateIndexSubSystem = "progress_create_index"
+	progressVacuumSubSystem      = "progress_vacuum"
+	replicationSubSystem         = "replication"
+	replicationSlotsSubSystem    = "replication_slots"
+	statementsSubSystem          = "statements"
+	userTablesSubSystem          = "user_tables"
+	userIndexesSubSystem         = "user_indexes"
+	walSubSystem                 = "wal"
+	walReceiverSubSystem         = "wal_receiver"
 )
 
 // Collector is a scraper for one Postgres statistics view.
@@ -71,6 +76,11 @@ func DefaultCollectors(dbClients []*db.Client) []Collector {
 		NewPgStatWalCollector(dbClients),
 		NewPgStatWalReceiverCollector(dbClients),
 		NewPgDatabaseSizeCollector(dbClients),
+		NewPgStatProgressAnalyzeCollector(dbClients),
+		NewPgStatProgressBasebackupCollector(dbClients),
+		NewPgStatProgressClusterCollector(dbClients),
+		NewPgStatProgressCopyCollector(dbClients),
+		NewPgStatProgressCreateIndexCollector(dbClients),
 		NewPgStatProgressVacuumCollector(dbClients),
 	}
 }

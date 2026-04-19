@@ -200,6 +200,75 @@ type PgStatProgressVacuum struct {
 	IndexVacuumCount pgtype.Int8 `db:"index_vacuum_count"`
 }
 
+// PgStatProgressAnalyze is one row per active ANALYZE (PG 13+).
+type PgStatProgressAnalyze struct {
+	Database          pgtype.Text `db:"database"`
+	DatName           pgtype.Text `db:"datname"`
+	RelID             pgtype.Text `db:"relid"`
+	Phase             pgtype.Text `db:"phase"`
+	SampleBlksTotal   pgtype.Int8 `db:"sample_blks_total"`
+	SampleBlksScanned pgtype.Int8 `db:"sample_blks_scanned"`
+	ExtStatsTotal     pgtype.Int8 `db:"ext_stats_total"`
+	ExtStatsComputed  pgtype.Int8 `db:"ext_stats_computed"`
+	ChildTablesTotal  pgtype.Int8 `db:"child_tables_total"`
+	ChildTablesDone   pgtype.Int8 `db:"child_tables_done"`
+}
+
+// PgStatProgressBasebackup is one row per active pg_basebackup (PG 13+).
+type PgStatProgressBasebackup struct {
+	Database            pgtype.Text `db:"database"`
+	Phase               pgtype.Text `db:"phase"`
+	BackupTotalBytes    pgtype.Int8 `db:"backup_total"`
+	BackupStreamedBytes pgtype.Int8 `db:"backup_streamed"`
+	TablespacesTotal    pgtype.Int8 `db:"tablespaces_total"`
+	TablespacesStreamed pgtype.Int8 `db:"tablespaces_streamed"`
+}
+
+// PgStatProgressCopy is one row per active COPY (PG 14+).
+type PgStatProgressCopy struct {
+	Database        pgtype.Text `db:"database"`
+	DatName         pgtype.Text `db:"datname"`
+	RelID           pgtype.Text `db:"relid"`
+	Command         pgtype.Text `db:"command"`
+	Type            pgtype.Text `db:"type"`
+	BytesTotal      pgtype.Int8 `db:"bytes_total"`
+	BytesProcessed  pgtype.Int8 `db:"bytes_processed"`
+	TuplesProcessed pgtype.Int8 `db:"tuples_processed"`
+	TuplesExcluded  pgtype.Int8 `db:"tuples_excluded"`
+}
+
+// PgStatProgressCreateIndex is one row per active CREATE INDEX / REINDEX.
+type PgStatProgressCreateIndex struct {
+	Database        pgtype.Text `db:"database"`
+	DatName         pgtype.Text `db:"datname"`
+	RelID           pgtype.Text `db:"relid"`
+	IndexRelID      pgtype.Text `db:"index_relid"`
+	Command         pgtype.Text `db:"command"`
+	Phase           pgtype.Text `db:"phase"`
+	LockersTotal    pgtype.Int8 `db:"lockers_total"`
+	LockersDone     pgtype.Int8 `db:"lockers_done"`
+	BlocksTotal     pgtype.Int8 `db:"blocks_total"`
+	BlocksDone      pgtype.Int8 `db:"blocks_done"`
+	TuplesTotal     pgtype.Int8 `db:"tuples_total"`
+	TuplesDone      pgtype.Int8 `db:"tuples_done"`
+	PartitionsTotal pgtype.Int8 `db:"partitions_total"`
+	PartitionsDone  pgtype.Int8 `db:"partitions_done"`
+}
+
+// PgStatProgressCluster is one row per active CLUSTER / VACUUM FULL.
+type PgStatProgressCluster struct {
+	Database          pgtype.Text `db:"database"`
+	DatName           pgtype.Text `db:"datname"`
+	RelID             pgtype.Text `db:"relid"`
+	Command           pgtype.Text `db:"command"`
+	Phase             pgtype.Text `db:"phase"`
+	HeapTuplesScanned pgtype.Int8 `db:"heap_tuples_scanned"`
+	HeapTuplesWritten pgtype.Int8 `db:"heap_tuples_written"`
+	HeapBlksTotal     pgtype.Int8 `db:"heap_blks_total"`
+	HeapBlksScanned   pgtype.Int8 `db:"heap_blks_scanned"`
+	IndexRebuildCount pgtype.Int8 `db:"index_rebuild_count"`
+}
+
 // PgLock is an aggregate lock-count row grouped by
 // (datname, mode, locktype, granted). Labels are low-cardinality:
 // mode ∈ {AccessShareLock, ...}, locktype ∈ {relation, tuple, transactionid, ...},
