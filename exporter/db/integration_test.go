@@ -186,6 +186,28 @@ func TestMatrix_SelectPgStatArchiver(t *testing.T) {
 	}
 }
 
+// TestMatrix_SelectPgStatReplication verifies the SELECT executes cleanly.
+// A fresh PG has no replicas attached so we expect zero rows; the test is a
+// regression guard for column renames / LSN-function availability.
+func TestMatrix_SelectPgStatReplication(t *testing.T) {
+	for _, tc := range pgVersionsUnderTest {
+		t.Run(tc.name, func(t *testing.T) {
+			client := connectPG(t, tc.version)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			rows, err := client.SelectPgStatReplication(ctx)
+			if err != nil {
+				t.Fatalf("SelectPgStatReplication: %v", err)
+			}
+			// Fresh PG has no attached replicas.
+			if len(rows) != 0 {
+				t.Logf("PG %s: got %d replication rows (unexpected but not an error)", tc.version, len(rows))
+			}
+		})
+	}
+}
+
 // TestMatrix_SelectPgStatUserTables runs the version-gated SELECT against
 // a live server and asserts it completes without error. Regression guard
 // for column renames / schema drift when PG releases a new major.

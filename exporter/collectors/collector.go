@@ -21,6 +21,7 @@ const (
 	checkpointerSubSystem = "checkpointer"
 	databaseSubSystem     = "database"
 	locksSubSystem        = "locks"
+	replicationSubSystem  = "replication"
 	statementsSubSystem   = "statements"
 	userTablesSubSystem   = "user_tables"
 	userIndexesSubSystem  = "user_indexes"
@@ -54,6 +55,7 @@ func DefaultCollectors(dbClients []*db.Client) []Collector {
 		NewPgStatCheckpointerCollector(dbClients),
 		NewPgStatDatabaseCollector(dbClients),
 		NewPgLocksCollector(dbClients),
+		NewPgStatReplicationCollector(dbClients),
 		// Statement scrapes take way too long.
 		// NewPgStatStatementsCollector(dbClients),
 		NewPgStatUserTableCollector(dbClients),
