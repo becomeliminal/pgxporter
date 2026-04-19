@@ -15,13 +15,14 @@ const (
 	namespace   = "pg_stat"
 	namespaceIO = "pg_statio"
 
-	activitySubSystem    = "activity"
-	bgwriterSubSystem    = "bgwriter"
-	databaseSubSystem    = "database"
-	locksSubSystem       = "locks"
-	statementsSubSystem  = "statements"
-	userTablesSubSystem  = "user_tables"
-	userIndexesSubSystem = "user_indexes"
+	activitySubSystem     = "activity"
+	bgwriterSubSystem     = "bgwriter"
+	checkpointerSubSystem = "checkpointer"
+	databaseSubSystem     = "database"
+	locksSubSystem        = "locks"
+	statementsSubSystem   = "statements"
+	userTablesSubSystem   = "user_tables"
+	userIndexesSubSystem  = "user_indexes"
 )
 
 // Collector is a scraper for one Postgres statistics view.
@@ -48,6 +49,7 @@ func DefaultCollectors(dbClients []*db.Client) []Collector {
 	return []Collector{
 		NewPgStatActivityCollector(dbClients),
 		NewPgStatBgwriterCollector(dbClients),
+		NewPgStatCheckpointerCollector(dbClients),
 		NewPgStatDatabaseCollector(dbClients),
 		NewPgLocksCollector(dbClients),
 		// Statement scrapes take way too long.

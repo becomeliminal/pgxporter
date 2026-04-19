@@ -63,6 +63,23 @@ type PgStatBgwriter struct {
 	BuffersBackendFsync pgtype.Int8   `db:"buffers_backend_fsync"`
 }
 
+// PgStatCheckpointer contains checkpoint activity.
+//
+// New view in PG 17 (split out from pg_stat_bgwriter). On pre-17 servers
+// the dedicated collector returns an empty result and emits no metrics.
+type PgStatCheckpointer struct {
+	Database           pgtype.Text        `db:"database"`
+	NumTimed           pgtype.Int8        `db:"num_timed"`
+	NumRequested       pgtype.Int8        `db:"num_requested"`
+	RestartpointsTimed pgtype.Int8        `db:"restartpoints_timed"`
+	RestartpointsReq   pgtype.Int8        `db:"restartpoints_req"`
+	RestartpointsDone  pgtype.Int8        `db:"restartpoints_done"`
+	WriteTime          pgtype.Float8      `db:"write_time"` // milliseconds
+	SyncTime           pgtype.Float8      `db:"sync_time"`  // milliseconds
+	BuffersWritten     pgtype.Int8        `db:"buffers_written"`
+	StatsReset         pgtype.Timestamptz `db:"stats_reset"`
+}
+
 // PgLock contains information on locks held.
 type PgLock struct {
 	Database pgtype.Text `db:"database"`
