@@ -46,11 +46,6 @@ func (c *PgStatIOUserIndexesCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.idxBlksHit
 }
 
-// Collect implements the promtheus.Collector.
-func (c *PgStatIOUserIndexesCollector) Collect(ch chan<- prometheus.Metric) {
-	_ = c.Scrape(ch)
-}
-
 // Scrape implements our Scraper interface.
 func (c *PgStatIOUserIndexesCollector) Scrape(ch chan<- prometheus.Metric) error {
 	start := time.Now()

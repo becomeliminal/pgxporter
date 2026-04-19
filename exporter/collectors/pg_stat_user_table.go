@@ -184,13 +184,6 @@ func (c *PgStatUserTableCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.autoAnalyzeCount
 }
 
-// Collect implements the promtheus.Collector.
-func (c *PgStatUserTableCollector) Collect(ch chan<- prometheus.Metric) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	_ = c.Scrape(ch)
-}
-
 // Scrape implements our Scraper interface.
 func (c *PgStatUserTableCollector) Scrape(ch chan<- prometheus.Metric) error {
 	start := time.Now()

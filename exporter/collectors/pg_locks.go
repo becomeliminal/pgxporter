@@ -40,13 +40,6 @@ func (c *PgLocksCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.count
 }
 
-// Collect implements the promtheus.Collector.
-func (c *PgLocksCollector) Collect(ch chan<- prometheus.Metric) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	_ = c.Scrape(ch)
-}
-
 // Scrape implements our Scraper interface.
 func (c *PgLocksCollector) Scrape(ch chan<- prometheus.Metric) error {
 	start := time.Now()

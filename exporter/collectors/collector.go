@@ -20,10 +20,19 @@ const (
 	userIndexesSubSystem = "user_indexes"
 )
 
-// Collector wraps the prometheus.Collector.
+// Collector is a scraper for one Postgres statistics view.
+//
+// It is intentionally NOT a [prometheus.Collector]: collectors in this
+// package are always driven through [exporter.Exporter], which aggregates
+// them and calls Scrape directly. Registering a bare collector with
+// prometheus.MustRegister would previously deadlock because Collect held
+// a write lock and Scrape re-acquired it from goroutines. Callers who
+// genuinely want to register a single collector with Prometheus must
+// wrap it themselves.
 type Collector interface {
-	prometheus.Collector
-	// Scrape is used by our exporter to scrape data from postgres.
+	// Describe emits the Prometheus descriptors this collector exports.
+	Describe(ch chan<- *prometheus.Desc)
+	// Scrape queries postgres and emits one metric per row on ch.
 	Scrape(ch chan<- prometheus.Metric) error
 }
 

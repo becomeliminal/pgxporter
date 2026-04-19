@@ -48,14 +48,7 @@ func (c *PgStatActivityCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.maxTxDuration
 }
 
-// Collect implements the promtheus.Collector.
-func (c *PgStatActivityCollector) Collect(ch chan<- prometheus.Metric) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	_ = c.Scrape(ch)
-}
-
-// Scrape implements our Scraper interfacc.
+// Scrape implements our Scraper interface.
 func (c *PgStatActivityCollector) Scrape(ch chan<- prometheus.Metric) error {
 	start := time.Now()
 	defer func() {

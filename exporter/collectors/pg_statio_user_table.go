@@ -96,11 +96,6 @@ func (c *PgStatIOUserTableCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.tidxBlksHit
 }
 
-// Collect implements the promtheus.Collector.
-func (c *PgStatIOUserTableCollector) Collect(ch chan<- prometheus.Metric) {
-	_ = c.Scrape(ch)
-}
-
 // Scrape implements our Scraper interface.
 func (c *PgStatIOUserTableCollector) Scrape(ch chan<- prometheus.Metric) error {
 	start := time.Now()

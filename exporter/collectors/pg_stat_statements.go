@@ -184,12 +184,7 @@ func (c *PgStatStatementsCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.blkWriteTimeSeconds
 }
 
-// Collect implements the promtheus.Collector.
-func (c *PgStatStatementsCollector) Collect(ch chan<- prometheus.Metric) {
-	_ = c.Scrape(ch)
-}
-
-// Scrape implements our Scraper interfacc.
+// Scrape implements our Scraper interface.
 func (c *PgStatStatementsCollector) Scrape(ch chan<- prometheus.Metric) error {
 	start := time.Now()
 	defer func() {
