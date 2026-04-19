@@ -312,6 +312,37 @@ func TestMatrix_SelectPgStatWal(t *testing.T) {
 	}
 }
 
+// TestMatrix_SelectPgStatActivity verifies the aggregate SELECT returns at
+// least one row (the exporter's own connection) on every PG version and
+// that the bucket fields (state, wait_event_type, backend_type) are all
+// populated.
+func TestMatrix_SelectPgStatActivity(t *testing.T) {
+	for _, tc := range pgVersionsUnderTest {
+		t.Run(tc.name, func(t *testing.T) {
+			client := connectPG(t, tc.version)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			rows, err := client.SelectPgStatActivity(ctx)
+			if err != nil {
+				t.Fatalf("SelectPgStatActivity: %v", err)
+			}
+			if len(rows) == 0 {
+				t.Fatalf("PG %s: expected at least one pg_stat_activity bucket, got 0", tc.version)
+			}
+			// Sanity-check that our own backend shows up with backend_type populated.
+			for _, r := range rows {
+				if !r.State.Valid || !r.WaitEventType.Valid || !r.BackendType.Valid {
+					t.Errorf("PG %s: bucket missing label field (state/wait_event_type/backend_type)", tc.version)
+				}
+				if !r.Count.Valid || r.Count.Int64 <= 0 {
+					t.Errorf("PG %s: bucket has non-positive count %d", tc.version, r.Count.Int64)
+				}
+			}
+		})
+	}
+}
+
 // TestMatrix_SelectPgStatUserTables runs the version-gated SELECT against
 // a live server and asserts it completes without error. Regression guard
 // for column renames / schema drift when PG releases a new major.
