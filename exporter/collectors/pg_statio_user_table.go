@@ -6,10 +6,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/becomeliminal/pgxporter/exporter/db"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/becomeliminal/pgxporter/exporter/db"
 )
 
 // PgStatIOUserTableCollector collects from pg_statio_user_tables.

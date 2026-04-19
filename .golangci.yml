@@ -19,6 +19,11 @@ linters-settings:
     simplify: true
   goimports:
     local-prefixes: github.com/becomeliminal/pgxporter
+  staticcheck:
+    # SA5008 flags duplicate struct tags, but go-flags (our CLI parser)
+    # uses multiple `choice:` tags per field to constrain enum values.
+    # Can't be avoided without rewriting flag definitions.
+    checks: ["all", "-SA5008"]
 
 issues:
   exclude-use-default: false

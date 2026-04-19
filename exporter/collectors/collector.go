@@ -1,9 +1,10 @@
 package collectors
 
 import (
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/becomeliminal/pgxporter/exporter/db"
 	"github.com/becomeliminal/pgxporter/exporter/logging"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 var log = logging.NewLogger()

@@ -101,5 +101,5 @@ func formatOptionsParam(str string) string {
 	for i := range fields {
 		fields[i] = url.QueryEscape(fields[i])
 	}
-	return strings.Join([]string(fields), "\\%20")
+	return strings.Join(fields, "\\%20")
 }
