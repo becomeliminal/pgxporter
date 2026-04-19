@@ -25,6 +25,7 @@ const (
 	statementsSubSystem   = "statements"
 	userTablesSubSystem   = "user_tables"
 	userIndexesSubSystem  = "user_indexes"
+	walReceiverSubSystem  = "wal_receiver"
 )
 
 // Collector is a scraper for one Postgres statistics view.
@@ -62,5 +63,6 @@ func DefaultCollectors(dbClients []*db.Client) []Collector {
 		NewPgStatUserIndexesCollector(dbClients),
 		NewPgStatIOUserTableCollector(dbClients),
 		NewPgStatIOUserIndexesCollector(dbClients),
+		NewPgStatWalReceiverCollector(dbClients),
 	}
 }

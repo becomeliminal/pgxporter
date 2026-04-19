@@ -208,6 +208,28 @@ func TestMatrix_SelectPgStatReplication(t *testing.T) {
 	}
 }
 
+// TestMatrix_SelectPgStatWalReceiver verifies the SELECT executes cleanly.
+// A fresh PG (primary) has no wal_receiver attached so we expect zero rows;
+// the test is a regression guard for column renames across versions.
+func TestMatrix_SelectPgStatWalReceiver(t *testing.T) {
+	for _, tc := range pgVersionsUnderTest {
+		t.Run(tc.name, func(t *testing.T) {
+			client := connectPG(t, tc.version)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			rows, err := client.SelectPgStatWalReceiver(ctx)
+			if err != nil {
+				t.Fatalf("SelectPgStatWalReceiver: %v", err)
+			}
+			// Fresh PG is a primary — view is empty.
+			if len(rows) != 0 {
+				t.Logf("PG %s: got %d wal_receiver rows (unexpected on a primary but not an error)", tc.version, len(rows))
+			}
+		})
+	}
+}
+
 // TestMatrix_SelectPgStatUserTables runs the version-gated SELECT against
 // a live server and asserts it completes without error. Regression guard
 // for column renames / schema drift when PG releases a new major.
