@@ -20,16 +20,20 @@ type PgStatUserTableCollector struct {
 	mutex     sync.RWMutex
 
 	seqScan          *prometheus.Desc
+	lastSeqScan      *prometheus.Desc // PG 16+
 	seqTupRead       *prometheus.Desc
 	idxScan          *prometheus.Desc
+	lastIdxScan      *prometheus.Desc // PG 16+
 	idxTupFetch      *prometheus.Desc
 	nTupIns          *prometheus.Desc
 	nTupUpd          *prometheus.Desc
 	nTupDel          *prometheus.Desc
 	nTupHotUpd       *prometheus.Desc
+	nTupNewpageUpd   *prometheus.Desc // PG 17+
 	nLiveTup         *prometheus.Desc
 	nDeadTup         *prometheus.Desc
 	nModSinceAnalyze *prometheus.Desc
+	nInsSinceVacuum  *prometheus.Desc // PG 13+
 	lastVacuum       *prometheus.Desc
 	lastAutoVacuum   *prometheus.Desc
 	lastAnalyze      *prometheus.Desc
@@ -159,22 +163,53 @@ func NewPgStatUserTableCollector(dbClients []*db.Client) *PgStatUserTableCollect
 			variableLabels,
 			nil,
 		),
+
+		// Version-gated descriptors — emitted only when the connected server
+		// is new enough. See [db.PgStatUserTable] struct comments.
+		lastSeqScan: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, userTablesSubSystem, "last_seq_scan"),
+			"Time of the last sequential scan on this table, as unix microseconds (PG 16+)",
+			variableLabels,
+			nil,
+		),
+		lastIdxScan: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, userTablesSubSystem, "last_idx_scan"),
+			"Time of the last index scan on this table, as unix microseconds (PG 16+)",
+			variableLabels,
+			nil,
+		),
+		nTupNewpageUpd: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, userTablesSubSystem, "n_tup_newpage_upd"),
+			"Number of rows updated via a new-page mechanism, i.e. not HOT (PG 17+)",
+			variableLabels,
+			nil,
+		),
+		nInsSinceVacuum: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, userTablesSubSystem, "n_ins_since_vacuum"),
+			"Estimated number of rows inserted since this table was last vacuumed (PG 13+)",
+			variableLabels,
+			nil,
+		),
 	}
 }
 
 // Describe implements the prometheus.Collector.
 func (c *PgStatUserTableCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.seqScan
+	ch <- c.lastSeqScan
 	ch <- c.seqTupRead
 	ch <- c.idxScan
+	ch <- c.lastIdxScan
 	ch <- c.idxTupFetch
 	ch <- c.nTupIns
 	ch <- c.nTupUpd
 	ch <- c.nTupDel
 	ch <- c.nTupHotUpd
+	ch <- c.nTupNewpageUpd
 	ch <- c.nLiveTup
 	ch <- c.nDeadTup
 	ch <- c.nModSinceAnalyze
+	ch <- c.nInsSinceVacuum
 	ch <- c.lastVacuum
 	ch <- c.lastAutoVacuum
 	ch <- c.lastAnalyze
@@ -233,16 +268,20 @@ func (c *PgStatUserTableCollector) emit(stats []*model.PgStatUserTable, ch chan<
 			}
 		}
 		emitInt(c.seqScan, prometheus.CounterValue, stat.SeqScan)
+		emitTime(c.lastSeqScan, stat.LastSeqScan) // PG 16+, invalid on older
 		emitInt(c.seqTupRead, prometheus.CounterValue, stat.SeqTupRead)
 		emitInt(c.idxScan, prometheus.CounterValue, stat.IndexScan)
+		emitTime(c.lastIdxScan, stat.LastIdxScan) // PG 16+, invalid on older
 		emitInt(c.idxTupFetch, prometheus.CounterValue, stat.IndexTupFetch)
 		emitInt(c.nTupIns, prometheus.CounterValue, stat.NTupInsert)
 		emitInt(c.nTupUpd, prometheus.CounterValue, stat.NTupUpdate)
 		emitInt(c.nTupDel, prometheus.CounterValue, stat.NTupDelete)
 		emitInt(c.nTupHotUpd, prometheus.CounterValue, stat.NTupHotUpdate)
+		emitInt(c.nTupNewpageUpd, prometheus.CounterValue, stat.NTupNewpageUpdate) // PG 17+
 		emitInt(c.nLiveTup, prometheus.GaugeValue, stat.NLiveTup)
 		emitInt(c.nDeadTup, prometheus.GaugeValue, stat.NDeadTup)
 		emitInt(c.nModSinceAnalyze, prometheus.GaugeValue, stat.NModSinceAnalyze)
+		emitInt(c.nInsSinceVacuum, prometheus.GaugeValue, stat.NInsSinceVacuum) // PG 13+
 		emitTime(c.lastVacuum, stat.LastVacuum)
 		emitTime(c.lastAutoVacuum, stat.LastAutoVacuum)
 		emitTime(c.lastAnalyze, stat.LastAnalyze)
