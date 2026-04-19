@@ -3,19 +3,18 @@ package collectors
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
-	"github.com/becomeliminal/pgxporter/exporter/db"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/becomeliminal/pgxporter/exporter/db"
 )
 
 // PgStatIOUserTableCollector collects from pg_statio_user_tables.
 type PgStatIOUserTableCollector struct {
 	dbClients []*db.Client
-	mutex     sync.RWMutex
 
 	heapBlksRead  *prometheus.Desc
 	heapBlksHit   *prometheus.Desc

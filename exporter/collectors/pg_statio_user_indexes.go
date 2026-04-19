@@ -3,18 +3,17 @@ package collectors
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
-	"github.com/becomeliminal/pgxporter/exporter/db"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/becomeliminal/pgxporter/exporter/db"
 )
 
 // PgStatIOUserIndexesCollector collects from pg_statio_user_indexes.
 type PgStatIOUserIndexesCollector struct {
 	dbClients []*db.Client
-	mutex     sync.RWMutex
 
 	idxBlksRead *prometheus.Desc
 	idxBlksHit  *prometheus.Desc

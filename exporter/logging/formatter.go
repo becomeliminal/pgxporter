@@ -13,9 +13,6 @@ const (
 	// Default log format - rich.
 	richLogFormat = "%time%:%file%:%line%# [%level%] - %message%\n"
 
-	// Raw log format - plain.
-	rawLogFormat = "%message%\n"
-
 	// Default timestamp format
 	defaultTimestampFormat = time.StampNano
 )

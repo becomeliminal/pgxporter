@@ -4,19 +4,18 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"sync"
 	"time"
 
-	"github.com/becomeliminal/pgxporter/exporter/db"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/becomeliminal/pgxporter/exporter/db"
 )
 
 // PgStatStatementsCollector collects from pg_stat_statements.
 type PgStatStatementsCollector struct {
 	dbClients []*db.Client
-	mutex     sync.RWMutex
 
 	calls               *prometheus.Desc
 	totalTimeSeconds    *prometheus.Desc
@@ -213,7 +212,7 @@ func (c *PgStatStatementsCollector) scrape(dbClient *db.Client, ch chan<- promet
 		return fmt.Errorf("statement stats: %w", err)
 	}
 	start := time.Now()
-	log.Infof("statements lock aquire %dms", time.Now().Sub(start).Milliseconds())
+	log.Infof("statements lock acquire %dms", time.Now().Sub(start).Milliseconds())
 	for _, stat := range statementStats {
 		queryID := ""
 		if stat.QueryID.Valid {

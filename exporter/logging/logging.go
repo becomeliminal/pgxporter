@@ -27,16 +27,6 @@ const (
 // Level represents the logger's logging severity level.
 type Level int
 
-var levels = map[Level]logrus.Level{
-	PanicLevel: logrus.PanicLevel,
-	FatalLevel: logrus.FatalLevel,
-	ErrorLevel: logrus.ErrorLevel,
-	WarnLevel:  logrus.WarnLevel,
-	InfoLevel:  logrus.InfoLevel,
-	DebugLevel: logrus.DebugLevel,
-	TraceLevel: logrus.TraceLevel,
-}
-
 // Logger is a wrapper around logrus. It is used by all micro-services for logging purposes.
 type Logger struct {
 	*logrus.Logger

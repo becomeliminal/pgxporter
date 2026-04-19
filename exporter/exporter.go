@@ -6,11 +6,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/becomeliminal/pgxporter/exporter/collectors"
 	"github.com/becomeliminal/pgxporter/exporter/db"
 	"github.com/becomeliminal/pgxporter/exporter/logging"
-	"github.com/prometheus/client_golang/prometheus"
-	"golang.org/x/sync/errgroup"
 )
 
 var log = logging.NewLogger()
