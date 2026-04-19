@@ -18,29 +18,29 @@ type PgStatUserTableCollector struct {
 	dbClients []*db.Client
 	mutex     sync.RWMutex
 
-	seqScan           *prometheus.Desc
-	lastSeqScan       *prometheus.Desc // PG 16+
-	seqTupRead        *prometheus.Desc
-	idxScan           *prometheus.Desc
-	lastIdxScan       *prometheus.Desc // PG 16+
-	idxTupFetch       *prometheus.Desc
-	nTupIns           *prometheus.Desc
-	nTupUpd           *prometheus.Desc
-	nTupDel           *prometheus.Desc
-	nTupHotUpd        *prometheus.Desc
-	nTupNewpageUpd    *prometheus.Desc // PG 17+
-	nLiveTup          *prometheus.Desc
-	nDeadTup          *prometheus.Desc
-	nModSinceAnalyze  *prometheus.Desc
-	nInsSinceVacuum   *prometheus.Desc // PG 13+
-	lastVacuum        *prometheus.Desc
-	lastAutoVacuum    *prometheus.Desc
-	lastAnalyze       *prometheus.Desc
-	lastAutoAnalyze   *prometheus.Desc
-	vacuumCount       *prometheus.Desc
-	autoVacuumCount   *prometheus.Desc
-	analyzeCount      *prometheus.Desc
-	autoAnalyzeCount  *prometheus.Desc
+	seqScan          *prometheus.Desc
+	lastSeqScan      *prometheus.Desc // PG 16+
+	seqTupRead       *prometheus.Desc
+	idxScan          *prometheus.Desc
+	lastIdxScan      *prometheus.Desc // PG 16+
+	idxTupFetch      *prometheus.Desc
+	nTupIns          *prometheus.Desc
+	nTupUpd          *prometheus.Desc
+	nTupDel          *prometheus.Desc
+	nTupHotUpd       *prometheus.Desc
+	nTupNewpageUpd   *prometheus.Desc // PG 17+
+	nLiveTup         *prometheus.Desc
+	nDeadTup         *prometheus.Desc
+	nModSinceAnalyze *prometheus.Desc
+	nInsSinceVacuum  *prometheus.Desc // PG 13+
+	lastVacuum       *prometheus.Desc
+	lastAutoVacuum   *prometheus.Desc
+	lastAnalyze      *prometheus.Desc
+	lastAutoAnalyze  *prometheus.Desc
+	vacuumCount      *prometheus.Desc
+	autoVacuumCount  *prometheus.Desc
+	analyzeCount     *prometheus.Desc
+	autoAnalyzeCount *prometheus.Desc
 }
 
 // NewPgStatUserTableCollector instantiates and returns a new PgStatUserTableCollector.
