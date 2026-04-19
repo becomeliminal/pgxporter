@@ -94,6 +94,27 @@ type PgStatArchiver struct {
 	StatsReset       pgtype.Timestamptz `db:"stats_reset"`
 }
 
+// PgStatReplication contains one row per downstream replica connected to the
+// primary. On a standby the view is empty (or contains cascading downstream
+// replicas). The LSN-diff columns are computed against pg_current_wal_lsn()
+// and gated with CASE WHEN pg_is_in_recovery() so standbys don't hit the
+// "recovery is in progress" error; on a standby they remain NULL.
+type PgStatReplication struct {
+	Database         pgtype.Text   `db:"database"`
+	Pid              pgtype.Int8   `db:"pid"`
+	ApplicationName  pgtype.Text   `db:"application_name"`
+	ClientAddr       pgtype.Text   `db:"client_addr"`
+	State            pgtype.Text   `db:"state"`
+	SyncState        pgtype.Text   `db:"sync_state"`
+	SentLagBytes     pgtype.Float8 `db:"sent_lag_bytes"`
+	WriteLagBytes    pgtype.Float8 `db:"write_lag_bytes"`
+	FlushLagBytes    pgtype.Float8 `db:"flush_lag_bytes"`
+	ReplayLagBytes   pgtype.Float8 `db:"replay_lag_bytes"`
+	WriteLagSeconds  pgtype.Float8 `db:"write_lag_seconds"`
+	FlushLagSeconds  pgtype.Float8 `db:"flush_lag_seconds"`
+	ReplayLagSeconds pgtype.Float8 `db:"replay_lag_seconds"`
+}
+
 // PgLock contains information on locks held.
 type PgLock struct {
 	Database pgtype.Text `db:"database"`
