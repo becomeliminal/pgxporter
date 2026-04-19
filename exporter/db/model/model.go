@@ -80,6 +80,20 @@ type PgStatCheckpointer struct {
 	StatsReset         pgtype.Timestamptz `db:"stats_reset"`
 }
 
+// PgStatArchiver contains WAL-archiving statistics (cluster-wide, single row).
+//
+// Available on all supported PG versions. The last_archived_wal / last_failed_wal
+// filenames are intentionally omitted — they're high-cardinality text and not
+// useful as metric values; users wanting them can query the view directly.
+type PgStatArchiver struct {
+	Database         pgtype.Text        `db:"database"`
+	ArchivedCount    pgtype.Int8        `db:"archived_count"`
+	LastArchivedTime pgtype.Timestamptz `db:"last_archived_time"`
+	FailedCount      pgtype.Int8        `db:"failed_count"`
+	LastFailedTime   pgtype.Timestamptz `db:"last_failed_time"`
+	StatsReset       pgtype.Timestamptz `db:"stats_reset"`
+}
+
 // PgLock contains information on locks held.
 type PgLock struct {
 	Database pgtype.Text `db:"database"`

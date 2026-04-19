@@ -16,6 +16,7 @@ const (
 	namespaceIO = "pg_statio"
 
 	activitySubSystem     = "activity"
+	archiverSubSystem     = "archiver"
 	bgwriterSubSystem     = "bgwriter"
 	checkpointerSubSystem = "checkpointer"
 	databaseSubSystem     = "database"
@@ -48,6 +49,7 @@ type Collector interface {
 func DefaultCollectors(dbClients []*db.Client) []Collector {
 	return []Collector{
 		NewPgStatActivityCollector(dbClients),
+		NewPgStatArchiverCollector(dbClients),
 		NewPgStatBgwriterCollector(dbClients),
 		NewPgStatCheckpointerCollector(dbClients),
 		NewPgStatDatabaseCollector(dbClients),
