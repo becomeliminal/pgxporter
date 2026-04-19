@@ -22,29 +22,42 @@ type PgStatActivity struct {
 }
 
 // PgStatUserTable contains information on user tables.
+//
+// Some columns are version-gated — the SQL that populates this struct only
+// selects them on Postgres versions that expose them. Version-gated fields
+// remain zero-valued (pgtype.Valid == false) on older servers, and the
+// collector skips them. Mapping:
+//
+//   - NInsSinceVacuum:  PG 13+
+//   - LastSeqScan, LastIdxScan:  PG 16+
+//   - NTupNewpageUpdate:  PG 17+
 type PgStatUserTable struct {
-	Database         pgtype.Text        `db:"database"`
-	SchemaName       pgtype.Text        `db:"schemaname"`
-	RelName          pgtype.Text        `db:"relname"`
-	SeqScan          pgtype.Int8        `db:"seq_scan"`
-	SeqTupRead       pgtype.Int8        `db:"seq_tup_read"`
-	IndexScan        pgtype.Int8        `db:"idx_scan"`
-	IndexTupFetch    pgtype.Int8        `db:"idx_tup_fetch"`
-	NTupInsert       pgtype.Int8        `db:"n_tup_ins"`
-	NTupUpdate       pgtype.Int8        `db:"n_tup_upd"`
-	NTupDelete       pgtype.Int8        `db:"n_tup_del"`
-	NTupHotUpdate    pgtype.Int8        `db:"n_tup_hot_upd"`
-	NLiveTup         pgtype.Int8        `db:"n_live_tup"`
-	NDeadTup         pgtype.Int8        `db:"n_dead_tup"`
-	NModSinceAnalyze pgtype.Int8        `db:"n_mod_since_analyze"`
-	LastVacuum       pgtype.Timestamptz `db:"last_vacuum"`
-	LastAutoVacuum   pgtype.Timestamptz `db:"last_autovacuum"`
-	LastAnalyze      pgtype.Timestamptz `db:"last_analyze"`
-	LastAutoAnalyze  pgtype.Timestamptz `db:"last_autoanalyze"`
-	VacuumCount      pgtype.Int8        `db:"vacuum_count"`
-	AutoVacuumCount  pgtype.Int8        `db:"autovacuum_count"`
-	AnalyzeCount     pgtype.Int8        `db:"analyze_count"`
-	AutoAnalyzeCount pgtype.Int8        `db:"autoanalyze_count"`
+	Database          pgtype.Text        `db:"database"`
+	SchemaName        pgtype.Text        `db:"schemaname"`
+	RelName           pgtype.Text        `db:"relname"`
+	SeqScan           pgtype.Int8        `db:"seq_scan"`
+	LastSeqScan       pgtype.Timestamptz `db:"last_seq_scan"` // PG 16+
+	SeqTupRead        pgtype.Int8        `db:"seq_tup_read"`
+	IndexScan         pgtype.Int8        `db:"idx_scan"`
+	LastIdxScan       pgtype.Timestamptz `db:"last_idx_scan"` // PG 16+
+	IndexTupFetch     pgtype.Int8        `db:"idx_tup_fetch"`
+	NTupInsert        pgtype.Int8        `db:"n_tup_ins"`
+	NTupUpdate        pgtype.Int8        `db:"n_tup_upd"`
+	NTupDelete        pgtype.Int8        `db:"n_tup_del"`
+	NTupHotUpdate     pgtype.Int8        `db:"n_tup_hot_upd"`
+	NTupNewpageUpdate pgtype.Int8        `db:"n_tup_newpage_upd"` // PG 17+
+	NLiveTup          pgtype.Int8        `db:"n_live_tup"`
+	NDeadTup          pgtype.Int8        `db:"n_dead_tup"`
+	NModSinceAnalyze  pgtype.Int8        `db:"n_mod_since_analyze"`
+	NInsSinceVacuum   pgtype.Int8        `db:"n_ins_since_vacuum"` // PG 13+
+	LastVacuum        pgtype.Timestamptz `db:"last_vacuum"`
+	LastAutoVacuum    pgtype.Timestamptz `db:"last_autovacuum"`
+	LastAnalyze       pgtype.Timestamptz `db:"last_analyze"`
+	LastAutoAnalyze   pgtype.Timestamptz `db:"last_autoanalyze"`
+	VacuumCount       pgtype.Int8        `db:"vacuum_count"`
+	AutoVacuumCount   pgtype.Int8        `db:"autovacuum_count"`
+	AnalyzeCount      pgtype.Int8        `db:"analyze_count"`
+	AutoAnalyzeCount  pgtype.Int8        `db:"autoanalyze_count"`
 }
 
 // PgStatIOUserTable contains I/O information on user tables.
