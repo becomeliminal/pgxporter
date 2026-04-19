@@ -25,12 +25,24 @@ type Opts struct {
 	// pg_stat_exporter_scrapes_total) to disambiguate when multiple exporters are
 	// registered in the same Prometheus registry. Optional — omit for single-exporter use.
 	Name string
+	// CollectionTimeout bounds a single Prometheus scrape cycle. Zero means
+	// DefaultCollectionTimeout; pass -1 for no timeout. Propagated to every
+	// collector via [collectors.Collector.Scrape] so a pathological query
+	// cannot hang the scrape indefinitely.
+	CollectionTimeout time.Duration
 }
+
+// DefaultCollectionTimeout is the per-scrape deadline if Opts.CollectionTimeout
+// is zero. Matches prometheus-community/postgres_exporter's --collection-timeout
+// default so operators migrating from postgres_exporter get the same behaviour.
+const DefaultCollectionTimeout = 1 * time.Minute
 
 // Exporter collects PostgreSQL metrics and exports them via prometheus.
 type Exporter struct {
 	dbClients  []*db.Client
 	collectors []collectors.Collector
+
+	collectionTimeout time.Duration
 
 	// Internal metrics.
 	up           prometheus.Gauge
@@ -66,9 +78,15 @@ func New(ctx context.Context, opts Opts) (*Exporter, error) {
 		constLabels = prometheus.Labels{"database": opts.Name}
 	}
 
+	collectionTimeout := opts.CollectionTimeout
+	if collectionTimeout == 0 {
+		collectionTimeout = DefaultCollectionTimeout
+	}
+
 	return &Exporter{
-		dbClients:  dbClients,
-		collectors: collectors.DefaultCollectors(dbClients),
+		dbClients:         dbClients,
+		collectors:        collectors.DefaultCollectors(dbClients),
+		collectionTimeout: collectionTimeout,
 
 		// Internal metrics.
 		up: prometheus.NewGauge(prometheus.GaugeOpts{
@@ -116,7 +134,11 @@ func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 	}
 }
 
-// Collect implements the promtheus.Collector.
+// Collect implements the prometheus.Collector interface.
+//
+// It runs every registered collector in parallel under a per-scrape deadline
+// sourced from [Opts.CollectionTimeout]. Collector errors are logged and
+// surfaced as pg_stat_up=0; a single slow collector cannot hang the scrape.
 func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	start := time.Now()
 	defer func() {
@@ -125,12 +147,17 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 
+	// prometheus.Collector.Collect has no ctx argument, so we derive one here.
+	// Every collector honours this deadline via [collectors.Collector.Scrape].
+	ctx, cancel := e.scrapeContext()
+	defer cancel()
+
 	e.totalScrapes.Inc()
 	up := 1
-	group := errgroup.Group{}
+	group, gctx := errgroup.WithContext(ctx)
 	for _, collector := range e.collectors {
 		collector := collector
-		group.Go(func() error { return collector.Scrape(ch) })
+		group.Go(func() error { return collector.Scrape(gctx, ch) })
 	}
 	if err := group.Wait(); err != nil {
 		up = 0
@@ -138,4 +165,14 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	}
 	ch <- prometheus.MustNewConstMetric(e.up.Desc(), prometheus.GaugeValue, float64(up))
 	ch <- e.totalScrapes
+}
+
+// scrapeContext returns a context bounded by [Exporter.collectionTimeout].
+// A negative timeout disables the deadline (for debugging); zero would be
+// caught upstream by [New] and replaced with [DefaultCollectionTimeout].
+func (e *Exporter) scrapeContext() (context.Context, context.CancelFunc) {
+	if e.collectionTimeout < 0 {
+		return context.WithCancel(context.Background())
+	}
+	return context.WithTimeout(context.Background(), e.collectionTimeout)
 }
