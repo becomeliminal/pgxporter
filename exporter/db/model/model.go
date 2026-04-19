@@ -41,6 +41,28 @@ type PgStatDatabase struct {
 	StatsReset            pgtype.Timestamptz `db:"stats_reset"`
 }
 
+// PgStatBgwriter contains background-writer statistics.
+//
+// PG 17 split most of this view into pg_stat_checkpointer. We keep one
+// struct and version-gate the projection so the remaining PG < 17 columns
+// are zero-valued on newer servers (and vice versa).
+type PgStatBgwriter struct {
+	Database        pgtype.Text        `db:"database"`
+	BuffersClean    pgtype.Int8        `db:"buffers_clean"`
+	MaxwrittenClean pgtype.Int8        `db:"maxwritten_clean"`
+	BuffersAlloc    pgtype.Int8        `db:"buffers_alloc"`
+	StatsReset      pgtype.Timestamptz `db:"stats_reset"`
+
+	// PG < 17 only — moved to pg_stat_checkpointer in PG 17.
+	CheckpointsTimed    pgtype.Int8   `db:"checkpoints_timed"`
+	CheckpointsReq      pgtype.Int8   `db:"checkpoints_req"`
+	CheckpointWriteTime pgtype.Float8 `db:"checkpoint_write_time"`
+	CheckpointSyncTime  pgtype.Float8 `db:"checkpoint_sync_time"`
+	BuffersCheckpoint   pgtype.Int8   `db:"buffers_checkpoint"`
+	BuffersBackend      pgtype.Int8   `db:"buffers_backend"`
+	BuffersBackendFsync pgtype.Int8   `db:"buffers_backend_fsync"`
+}
+
 // PgLock contains information on locks held.
 type PgLock struct {
 	Database pgtype.Text `db:"database"`

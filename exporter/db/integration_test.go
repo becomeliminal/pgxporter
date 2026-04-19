@@ -9,7 +9,7 @@
 //
 // Each sub-test is named after the PG version so you can target one:
 //
-//     go test -tags integration -run TestMatrix/PG_17_6 ./exporter/db/...
+//	go test -tags integration -run TestMatrix/PG_17_6 ./exporter/db/...
 package db
 
 import (
@@ -94,6 +94,41 @@ func TestMatrix_SelectPgStatDatabase(t *testing.T) {
 				}
 				if !foundValid {
 					t.Errorf("PG %s: expected at least one row with Sessions.Valid=true", tc.version)
+				}
+			}
+		})
+	}
+}
+
+// TestMatrix_SelectPgStatBgwriter verifies the version-gated SELECT executes
+// on every PG version. PG <17 should return the pre-split columns; PG 17+
+// should only return the retained columns.
+func TestMatrix_SelectPgStatBgwriter(t *testing.T) {
+	for _, tc := range pgVersionsUnderTest {
+		t.Run(tc.name, func(t *testing.T) {
+			client := connectPG(t, tc.version)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			rows, err := client.SelectPgStatBgwriter(ctx)
+			if err != nil {
+				t.Fatalf("SelectPgStatBgwriter: %v", err)
+			}
+			if len(rows) == 0 {
+				t.Fatalf("expected one pg_stat_bgwriter row, got 0")
+			}
+
+			r := rows[0]
+			if !r.BuffersAlloc.Valid {
+				t.Errorf("PG %s: BuffersAlloc should be Valid (always exposed)", tc.version)
+			}
+			if client.AtLeast(17, 0) {
+				if r.CheckpointsTimed.Valid {
+					t.Errorf("PG %s: CheckpointsTimed should NOT be Valid (moved to pg_stat_checkpointer)", tc.version)
+				}
+			} else {
+				if !r.CheckpointsTimed.Valid {
+					t.Errorf("PG %s: CheckpointsTimed should be Valid on pre-17", tc.version)
 				}
 			}
 		})
