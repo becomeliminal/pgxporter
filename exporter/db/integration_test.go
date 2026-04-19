@@ -230,6 +230,27 @@ func TestMatrix_SelectPgStatWalReceiver(t *testing.T) {
 	}
 }
 
+// TestMatrix_SelectPgReplicationSlots verifies the version-gated SELECT
+// executes cleanly across the matrix. Fresh PG has no slots so zero rows is
+// expected; the test is a schema-drift guard for wal_status / safe_wal_size
+// (PG 13+) and conflicting (PG 16+).
+func TestMatrix_SelectPgReplicationSlots(t *testing.T) {
+	for _, tc := range pgVersionsUnderTest {
+		t.Run(tc.name, func(t *testing.T) {
+			client := connectPG(t, tc.version)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			rows, err := client.SelectPgReplicationSlots(ctx)
+			if err != nil {
+				t.Fatalf("SelectPgReplicationSlots: %v", err)
+			}
+			// No slots on a fresh PG.
+			_ = rows
+		})
+	}
+}
+
 // TestMatrix_SelectPgStatUserTables runs the version-gated SELECT against
 // a live server and asserts it completes without error. Regression guard
 // for column renames / schema drift when PG releases a new major.
