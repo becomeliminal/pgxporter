@@ -193,13 +193,22 @@ type PgLock struct {
 	Count    pgtype.Int8 `db:"count"`
 }
 
-// PgStatActivity contains information on tx state.
+// PgStatActivity aggregates pg_stat_activity rows per
+// (datname, state, wait_event_type, backend_type). Labels are the
+// low-cardinality enum fields; per-backend detail (pid/query text) is
+// intentionally not exposed — it's unbounded and belongs in logs, not
+// Prometheus. Callers wanting a full session inventory should read
+// pg_stat_activity directly.
 type PgStatActivity struct {
-	Database      pgtype.Text   `db:"database"`
-	DatName       pgtype.Text   `db:"datname"`
-	State         pgtype.Text   `db:"state"`
-	Count         pgtype.Int8   `db:"count"`
-	MaxTxDuration pgtype.Float8 `db:"max_tx_duration"`
+	Database                pgtype.Text   `db:"database"`
+	DatName                 pgtype.Text   `db:"datname"`
+	State                   pgtype.Text   `db:"state"`
+	WaitEventType           pgtype.Text   `db:"wait_event_type"`
+	BackendType             pgtype.Text   `db:"backend_type"`
+	Count                   pgtype.Int8   `db:"count"`
+	MaxTxDurationSeconds    pgtype.Float8 `db:"max_tx_duration_seconds"`
+	MaxQueryDurationSeconds pgtype.Float8 `db:"max_query_duration_seconds"`
+	MaxBackendAgeSeconds    pgtype.Float8 `db:"max_backend_age_seconds"`
 }
 
 // PgStatUserTable contains information on user tables.
