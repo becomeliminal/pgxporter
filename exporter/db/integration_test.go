@@ -392,6 +392,26 @@ func TestMatrix_SelectPgLocksBlockingSummary(t *testing.T) {
 	}
 }
 
+// TestMatrix_SelectPgStatProgressVacuum verifies the SELECT executes on
+// every PG version. A quiet cluster has no active vacuums — zero rows
+// is expected and correct.
+func TestMatrix_SelectPgStatProgressVacuum(t *testing.T) {
+	for _, tc := range pgVersionsUnderTest {
+		t.Run(tc.name, func(t *testing.T) {
+			client := connectPG(t, tc.version)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			rows, err := client.SelectPgStatProgressVacuum(ctx)
+			if err != nil {
+				t.Fatalf("SelectPgStatProgressVacuum: %v", err)
+			}
+			// Quiet PG — no active vacuums.
+			_ = rows
+		})
+	}
+}
+
 // TestMatrix_SelectPgStatUserTables runs the version-gated SELECT against
 // a live server and asserts it completes without error. Regression guard
 // for column renames / schema drift when PG releases a new major.

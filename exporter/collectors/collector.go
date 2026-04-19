@@ -22,6 +22,7 @@ const (
 	checkpointerSubSystem     = "checkpointer"
 	databaseSubSystem         = "database"
 	locksSubSystem            = "locks"
+	progressVacuumSubSystem   = "progress_vacuum"
 	replicationSubSystem      = "replication"
 	replicationSlotsSubSystem = "replication_slots"
 	statementsSubSystem       = "statements"
@@ -70,5 +71,6 @@ func DefaultCollectors(dbClients []*db.Client) []Collector {
 		NewPgStatWalCollector(dbClients),
 		NewPgStatWalReceiverCollector(dbClients),
 		NewPgDatabaseSizeCollector(dbClients),
+		NewPgStatProgressVacuumCollector(dbClients),
 	}
 }
