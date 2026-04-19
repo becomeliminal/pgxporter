@@ -276,6 +276,42 @@ func TestMatrix_SelectPgDatabaseSize(t *testing.T) {
 	}
 }
 
+// TestMatrix_SelectPgStatWal verifies the PG 14+ SELECT executes cleanly on
+// PG 14+ and returns nothing on pre-14. Tests the column-composition split
+// between PG 14 (wal_write/wal_sync present) and PG 15+ (those removed).
+func TestMatrix_SelectPgStatWal(t *testing.T) {
+	for _, tc := range pgVersionsUnderTest {
+		t.Run(tc.name, func(t *testing.T) {
+			client := connectPG(t, tc.version)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			rows, err := client.SelectPgStatWal(ctx)
+			if err != nil {
+				t.Fatalf("SelectPgStatWal: %v", err)
+			}
+			if client.AtLeast(14, 0) {
+				if len(rows) == 0 {
+					t.Fatalf("PG %s: expected 1 pg_stat_wal row, got 0", tc.version)
+				}
+				r := rows[0]
+				if !r.WalRecords.Valid {
+					t.Errorf("PG %s: wal_records should be Valid", tc.version)
+				}
+				// Wal_write is gated to PG 14 only.
+				wantWriteValid := !client.AtLeast(15, 0)
+				if r.WalWrite.Valid != wantWriteValid {
+					t.Errorf("PG %s: wal_write.Valid = %v, want %v", tc.version, r.WalWrite.Valid, wantWriteValid)
+				}
+			} else {
+				if len(rows) != 0 {
+					t.Fatalf("PG %s: expected 0 rows on pre-14, got %d", tc.version, len(rows))
+				}
+			}
+		})
+	}
+}
+
 // TestMatrix_SelectPgStatUserTables runs the version-gated SELECT against
 // a live server and asserts it completes without error. Regression guard
 // for column renames / schema drift when PG releases a new major.

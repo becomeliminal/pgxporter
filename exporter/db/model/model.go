@@ -166,6 +166,25 @@ type PgDatabaseSize struct {
 	Bytes    pgtype.Int8 `db:"bytes"`
 }
 
+// PgStatWal contains cluster-wide WAL generation stats (PG 14+). Returns
+// zero rows on older servers.
+//
+// Note: PG 15 removed wal_write / wal_sync / wal_write_time / wal_sync_time
+// (those columns were deemed redundant with pg_stat_io). The SQL is composed
+// per-version so post-15 reads leave them NULL.
+type PgStatWal struct {
+	Database       pgtype.Text        `db:"database"`
+	WalRecords     pgtype.Int8        `db:"wal_records"`
+	WalFpi         pgtype.Int8        `db:"wal_fpi"`
+	WalBytes       pgtype.Float8      `db:"wal_bytes"`
+	WalBuffersFull pgtype.Int8        `db:"wal_buffers_full"`
+	WalWrite       pgtype.Int8        `db:"wal_write"`      // PG 14 only
+	WalSync        pgtype.Int8        `db:"wal_sync"`       // PG 14 only
+	WalWriteTime   pgtype.Float8      `db:"wal_write_time"` // PG 14 only, ms
+	WalSyncTime    pgtype.Float8      `db:"wal_sync_time"`  // PG 14 only, ms
+	StatsReset     pgtype.Timestamptz `db:"stats_reset"`
+}
+
 // PgLock contains information on locks held.
 type PgLock struct {
 	Database pgtype.Text `db:"database"`
