@@ -65,6 +65,41 @@ func TestMatrix_VersionDetection(t *testing.T) {
 	}
 }
 
+// TestMatrix_SelectPgStatDatabase verifies the version-gated SELECT executes
+// cleanly across the matrix and returns at least one non-template DB row.
+func TestMatrix_SelectPgStatDatabase(t *testing.T) {
+	for _, tc := range pgVersionsUnderTest {
+		t.Run(tc.name, func(t *testing.T) {
+			client := connectPG(t, tc.version)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			rows, err := client.SelectPgStatDatabase(ctx)
+			if err != nil {
+				t.Fatalf("SelectPgStatDatabase: %v", err)
+			}
+			if len(rows) == 0 {
+				t.Fatalf("expected at least one pg_stat_database row, got 0")
+			}
+
+			// PG 14+ should populate Sessions for the postgres DB once anyone
+			// has connected (which we did via connectPG).
+			if client.AtLeast(14, 0) {
+				foundValid := false
+				for _, r := range rows {
+					if r.Sessions.Valid {
+						foundValid = true
+						break
+					}
+				}
+				if !foundValid {
+					t.Errorf("PG %s: expected at least one row with Sessions.Valid=true", tc.version)
+				}
+			}
+		})
+	}
+}
+
 // TestMatrix_SelectPgStatUserTables runs the version-gated SELECT against
 // a live server and asserts it completes without error. Regression guard
 // for column renames / schema drift when PG releases a new major.
