@@ -185,15 +185,15 @@ func (c *PgStatUserTableCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 // Scrape implements our Scraper interface.
-func (c *PgStatUserTableCollector) Scrape(ch chan<- prometheus.Metric) error {
+func (c *PgStatUserTableCollector) Scrape(ctx context.Context, ch chan<- prometheus.Metric) error {
 	start := time.Now()
 	defer func() {
 		log.Infof("user table scrape took %dms", time.Now().Sub(start).Milliseconds())
 	}()
-	group := errgroup.Group{}
+	group, gctx := errgroup.WithContext(ctx)
 	for _, dbClient := range c.dbClients {
 		dbClient := dbClient
-		group.Go(func() error { return c.scrape(dbClient, ch) })
+		group.Go(func() error { return c.scrape(gctx, dbClient, ch) })
 	}
 	if err := group.Wait(); err != nil {
 		return fmt.Errorf("scraping: %w", err)
@@ -201,8 +201,8 @@ func (c *PgStatUserTableCollector) Scrape(ch chan<- prometheus.Metric) error {
 	return nil
 }
 
-func (c *PgStatUserTableCollector) scrape(dbClient *db.Client, ch chan<- prometheus.Metric) error {
-	userTableStats, err := dbClient.SelectPgStatUserTables(context.Background())
+func (c *PgStatUserTableCollector) scrape(ctx context.Context, dbClient *db.Client, ch chan<- prometheus.Metric) error {
+	userTableStats, err := dbClient.SelectPgStatUserTables(ctx)
 	if err != nil {
 		return fmt.Errorf("user table stats: %w", err)
 	}

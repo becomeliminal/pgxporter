@@ -41,15 +41,15 @@ func (c *PgLocksCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 // Scrape implements our Scraper interface.
-func (c *PgLocksCollector) Scrape(ch chan<- prometheus.Metric) error {
+func (c *PgLocksCollector) Scrape(ctx context.Context, ch chan<- prometheus.Metric) error {
 	start := time.Now()
 	defer func() {
 		log.Infof("lock scrape took %dms", time.Now().Sub(start).Milliseconds())
 	}()
-	group := errgroup.Group{}
+	group, gctx := errgroup.WithContext(ctx)
 	for _, dbClient := range c.dbClients {
 		dbClient := dbClient
-		group.Go(func() error { return c.scrape(dbClient, ch) })
+		group.Go(func() error { return c.scrape(gctx, dbClient, ch) })
 	}
 	if err := group.Wait(); err != nil {
 		return fmt.Errorf("scraping: %w", err)
@@ -57,8 +57,8 @@ func (c *PgLocksCollector) Scrape(ch chan<- prometheus.Metric) error {
 	return nil
 }
 
-func (c *PgLocksCollector) scrape(dbClient *db.Client, ch chan<- prometheus.Metric) error {
-	locks, err := dbClient.SelectPgLocks(context.Background())
+func (c *PgLocksCollector) scrape(ctx context.Context, dbClient *db.Client, ch chan<- prometheus.Metric) error {
+	locks, err := dbClient.SelectPgLocks(ctx)
 	if err != nil {
 		return fmt.Errorf("lock stats: %w", err)
 	}

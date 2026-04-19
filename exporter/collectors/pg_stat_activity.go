@@ -49,15 +49,15 @@ func (c *PgStatActivityCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 // Scrape implements our Scraper interface.
-func (c *PgStatActivityCollector) Scrape(ch chan<- prometheus.Metric) error {
+func (c *PgStatActivityCollector) Scrape(ctx context.Context, ch chan<- prometheus.Metric) error {
 	start := time.Now()
 	defer func() {
 		log.Infof("activity scrape took %dms", time.Now().Sub(start).Milliseconds())
 	}()
-	group := errgroup.Group{}
+	group, gctx := errgroup.WithContext(ctx)
 	for _, dbClient := range c.dbClients {
 		dbClient := dbClient
-		group.Go(func() error { return c.scrape(dbClient, ch) })
+		group.Go(func() error { return c.scrape(gctx, dbClient, ch) })
 	}
 	if err := group.Wait(); err != nil {
 		return fmt.Errorf("scraping: %w", err)
@@ -65,8 +65,8 @@ func (c *PgStatActivityCollector) Scrape(ch chan<- prometheus.Metric) error {
 	return nil
 }
 
-func (c *PgStatActivityCollector) scrape(dbClient *db.Client, ch chan<- prometheus.Metric) error {
-	activityStats, err := dbClient.SelectPgStatActivity(context.Background())
+func (c *PgStatActivityCollector) scrape(ctx context.Context, dbClient *db.Client, ch chan<- prometheus.Metric) error {
+	activityStats, err := dbClient.SelectPgStatActivity(ctx)
 	if err != nil {
 		return fmt.Errorf("activity stats: %w", err)
 	}

@@ -1,6 +1,8 @@
 package collectors
 
 import (
+	"context"
+
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/becomeliminal/pgxporter/exporter/db"
@@ -33,7 +35,10 @@ type Collector interface {
 	// Describe emits the Prometheus descriptors this collector exports.
 	Describe(ch chan<- *prometheus.Desc)
 	// Scrape queries postgres and emits one metric per row on ch.
-	Scrape(ch chan<- prometheus.Metric) error
+	// ctx carries the per-scrape deadline set by [exporter.Exporter];
+	// implementations MUST pass it to every DB call and honour cancellation
+	// so a pathological query cannot hang the whole scrape cycle.
+	Scrape(ctx context.Context, ch chan<- prometheus.Metric) error
 }
 
 // DefaultCollectors specifies the list of default collectors.
