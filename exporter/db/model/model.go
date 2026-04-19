@@ -115,6 +115,25 @@ type PgStatReplication struct {
 	ReplayLagSeconds pgtype.Float8 `db:"replay_lag_seconds"`
 }
 
+// PgStatWalReceiver contains WAL-receiver stats on a standby (one row per
+// active walreceiver). Empty on primaries. LSN columns are emitted as
+// byte offsets (pg_wal_lsn_diff against '0/0') so downstream dashboards
+// can diff across receivers.
+type PgStatWalReceiver struct {
+	Database             pgtype.Text        `db:"database"`
+	Pid                  pgtype.Int8        `db:"pid"`
+	Status               pgtype.Text        `db:"status"`
+	ReceiveStartLsnBytes pgtype.Float8      `db:"receive_start_lsn_bytes"`
+	WrittenLsnBytes      pgtype.Float8      `db:"written_lsn_bytes"`
+	FlushedLsnBytes      pgtype.Float8      `db:"flushed_lsn_bytes"`
+	LatestEndLsnBytes    pgtype.Float8      `db:"latest_end_lsn_bytes"`
+	LastMsgSendTime      pgtype.Timestamptz `db:"last_msg_send_time"`
+	LastMsgReceiptTime   pgtype.Timestamptz `db:"last_msg_receipt_time"`
+	LatestEndTime        pgtype.Timestamptz `db:"latest_end_time"`
+	SlotName             pgtype.Text        `db:"slot_name"`
+	SenderHost           pgtype.Text        `db:"sender_host"`
+}
+
 // PgLock contains information on locks held.
 type PgLock struct {
 	Database pgtype.Text `db:"database"`
