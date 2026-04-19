@@ -3,7 +3,6 @@ package collectors
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -16,7 +15,6 @@ import (
 // PgStatIOUserTableCollector collects from pg_statio_user_tables.
 type PgStatIOUserTableCollector struct {
 	dbClients []*db.Client
-	mutex     sync.RWMutex
 
 	heapBlksRead  *prometheus.Desc
 	heapBlksHit   *prometheus.Desc

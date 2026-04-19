@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -17,7 +16,6 @@ import (
 // PgStatStatementsCollector collects from pg_stat_statements.
 type PgStatStatementsCollector struct {
 	dbClients []*db.Client
-	mutex     sync.RWMutex
 
 	calls               *prometheus.Desc
 	totalTimeSeconds    *prometheus.Desc
