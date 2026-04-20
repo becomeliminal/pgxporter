@@ -67,6 +67,10 @@ First public release of pgxporter. Targets parity with the 80/20 of `prometheus-
 - Per-package godoc + `doc.go` for every package (LIM-1049).
 - README section on exporter-toolkit TLS + basic auth (LIM-1039).
 
+#### Benchmarks
+
+- Head-to-head HTTP-scrape benchmark vs postgres_exporter v0.19.1 (LIM-1053). `testutil.StartPostgresExporter` auto-downloads the competitor binary; `BenchmarkHeadToHead` runs both against identical fresh PG 17.6 instances with seeded fixtures. Results at 2026-04-20: pgxporter 2.8× faster wall time (14.6 ms vs 41.1 ms), 31% more series emitted, 6× higher memory per scrape. Full methodology + raw numbers in `benchmarks/head-to-head/`.
+
 ### Changed
 
 - **Relicensed from AGPL-3.0 to Apache-2.0** (LIM-1046) — aligns with the Prometheus exporter ecosystem; removes the adoption blocker posed by AGPL §13.

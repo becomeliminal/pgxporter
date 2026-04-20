@@ -1,0 +1,16 @@
+goos: linux
+goarch: amd64
+pkg: github.com/becomeliminal/pgxporter/exporter
+cpu: AMD Ryzen AI 9 HX 370 w/ Radeon 890M           
+BenchmarkHeadToHead/pgxporter-24         	     100	  15135004 ns/op	    279751 bytes/scrape	      2581 series/scrape	 3923516 B/op	   44800 allocs/op
+BenchmarkHeadToHead/pgxporter-24         	     100	  14624939 ns/op	    280269 bytes/scrape	      2585 series/scrape	 4035186 B/op	   44814 allocs/op
+BenchmarkHeadToHead/pgxporter-24         	     100	  14629378 ns/op	    279768 bytes/scrape	      2581 series/scrape	 4070183 B/op	   44809 allocs/op
+BenchmarkHeadToHead/pgxporter-24         	     100	  14699841 ns/op	    279747 bytes/scrape	      2581 series/scrape	 3968972 B/op	   44796 allocs/op
+BenchmarkHeadToHead/pgxporter-24         	     100	  14608671 ns/op	    280954 bytes/scrape	      2589 series/scrape	 3950373 B/op	   44799 allocs/op
+BenchmarkHeadToHead/postgres_exporter-24 	     100	  41121454 ns/op	    234763 bytes/scrape	      1967 series/scrape	  642051 B/op	      98 allocs/op
+BenchmarkHeadToHead/postgres_exporter-24 	     100	  40505729 ns/op	    234822 bytes/scrape	      1967 series/scrape	  641966 B/op	      97 allocs/op
+BenchmarkHeadToHead/postgres_exporter-24 	     100	  38463865 ns/op	    234818 bytes/scrape	      1967 series/scrape	  641962 B/op	      97 allocs/op
+BenchmarkHeadToHead/postgres_exporter-24 	     100	  44062605 ns/op	    234821 bytes/scrape	      1967 series/scrape	  642045 B/op	      97 allocs/op
+BenchmarkHeadToHead/postgres_exporter-24 	     100	  44853910 ns/op	    234843 bytes/scrape	      1967 series/scrape	  642063 B/op	      98 allocs/op
+PASS
+ok  	github.com/becomeliminal/pgxporter/exporter	59.518s
