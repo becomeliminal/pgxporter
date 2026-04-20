@@ -17,9 +17,10 @@ import (
 var log = logging.NewLogger()
 
 // namespace is the Prometheus metric namespace prefix used for this
-// exporter's self-metrics (pg_stat_up, pg_stat_exporter_scrapes_total).
-// Kept as a var — not a const — so Opts.MetricPrefix can flip it at
-// New() time to stay consistent with the collector-level prefix.
+// exporter's self-metrics (pg_stat_up, pg_stat_exporter_scrapes_total,
+// and the per-collector self-instrumentation added in M6). Kept as a
+// var — not a const — so Opts.MetricPrefix can flip it at New() time
+// to stay consistent with the collector-level prefix.
 var namespace = "pg_stat"
 
 // Opts for the exporter.
@@ -61,13 +62,16 @@ const DefaultCollectionTimeout = 1 * time.Minute
 // Exporter collects PostgreSQL metrics and exports them via prometheus.
 type Exporter struct {
 	dbClients  []*db.Client
-	collectors []collectors.Collector
+	collectors []collectors.NamedCollector
 
 	collectionTimeout time.Duration
 
-	// Internal metrics.
-	up           prometheus.Gauge
-	totalScrapes prometheus.Counter
+	// Self-metrics, emitted by every Collect call.
+	up                prometheus.Gauge
+	totalScrapes      prometheus.Counter
+	scrapeDuration    *prometheus.HistogramVec
+	scrapeErrors      *prometheus.CounterVec
+	metricCardinality *prometheus.GaugeVec
 
 	mutex sync.RWMutex
 }
@@ -117,12 +121,11 @@ func New(ctx context.Context, opts Opts) (*Exporter, error) {
 		log.Warnf("collector resolution: %v", resolveErr)
 	}
 
-	return &Exporter{
+	e := &Exporter{
 		dbClients:         dbClients,
 		collectors:        resolvedCollectors,
 		collectionTimeout: collectionTimeout,
 
-		// Internal metrics.
 		up: prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace:   namespace,
 			Name:        "up",
@@ -135,12 +138,54 @@ func New(ctx context.Context, opts Opts) (*Exporter, error) {
 			Help:        "Current total PostgreSQL scrapes",
 			ConstLabels: constLabels,
 		}),
-	}, nil
+		// Scrape-duration buckets cover the realistic range for a
+		// single-collector scrape: fast (local PG) is ~1 ms, busy
+		// (pg_locks with blocking-chain on a loaded cluster) can hit
+		// ~1 s. 10 s matches the default collection timeout.
+		scrapeDuration: prometheus.NewHistogramVec(prometheus.HistogramOpts{
+			Namespace:   namespace,
+			Name:        "scrape_duration_seconds",
+			Help:        "Time spent scraping a collector, seconds.",
+			Buckets:     []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
+			ConstLabels: constLabels,
+		}, []string{"collector"}),
+		scrapeErrors: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace:   namespace,
+			Name:        "scrape_errors_total",
+			Help:        "Scrape errors by collector.",
+			ConstLabels: constLabels,
+		}, []string{"collector"}),
+		// metricCardinality is the count of metrics emitted by a
+		// collector on its most recent scrape. An early alert signal
+		// for cardinality explosions before Prometheus itself chokes.
+		metricCardinality: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace:   namespace,
+			Name:        "metric_cardinality",
+			Help:        "Metric count emitted by a collector on its last scrape.",
+			ConstLabels: constLabels,
+		}, []string{"collector"}),
+	}
+
+	// Pre-initialise the error counter at zero for every resolved
+	// collector so rate(pg_stat_scrape_errors_total[5m]) gives a clean
+	// 0-rate signal on healthy exporters instead of "no data". The
+	// Counter's label-set only materialises after the first touch, so
+	// we explicitly .WithLabelValues() here to create the series.
+	for _, nc := range resolvedCollectors {
+		e.scrapeErrors.WithLabelValues(nc.Name)
+	}
+	return e, nil
 }
 
-// WithCustomCollectors lets the exporter scrape custom metrics.
-func (e *Exporter) WithCustomCollectors(collectors ...collectors.Collector) *Exporter {
-	e.collectors = append(e.collectors, collectors...)
+// WithCustomCollectors lets the exporter scrape custom metrics. Custom
+// collectors get a synthetic name ("custom_<N>") for self-metric labels.
+func (e *Exporter) WithCustomCollectors(cs ...collectors.Collector) *Exporter {
+	for i, c := range cs {
+		e.collectors = append(e.collectors, collectors.NamedCollector{
+			Name:      fmt.Sprintf("custom_%d", len(e.collectors)+i),
+			Collector: c,
+		})
+	}
 	return e
 }
 
@@ -157,11 +202,12 @@ func (e *Exporter) ExtendFromYAMLFile(path string) error {
 	if err != nil {
 		return err
 	}
-	extra := make([]collectors.Collector, 0, len(specs))
 	for _, s := range specs {
-		extra = append(extra, collectors.NewSpecCollector(s, e.dbClients))
+		e.collectors = append(e.collectors, collectors.NamedCollector{
+			Name:      "spec_" + s.Subsystem,
+			Collector: collectors.NewSpecCollector(s, e.dbClients),
+		})
 	}
-	e.collectors = append(e.collectors, extra...)
 	return nil
 }
 
@@ -181,11 +227,13 @@ func (e *Exporter) HealthCheck(ctx context.Context) error {
 
 // Describe implements the prometheus.Collector.
 func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
-	// Internal metrics.
 	ch <- e.up.Desc()
 	ch <- e.totalScrapes.Desc()
-	for _, collector := range e.collectors {
-		collector.Describe(ch)
+	e.scrapeDuration.Describe(ch)
+	e.scrapeErrors.Describe(ch)
+	e.metricCardinality.Describe(ch)
+	for _, nc := range e.collectors {
+		nc.Collector.Describe(ch)
 	}
 }
 
@@ -194,25 +242,26 @@ func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 // It runs every registered collector in parallel under a per-scrape deadline
 // sourced from [Opts.CollectionTimeout]. Collector errors are logged and
 // surfaced as pg_stat_up=0; a single slow collector cannot hang the scrape.
+//
+// Each collector is instrumented with three self-metrics emitted at the
+// end of the scrape: pg_stat_scrape_duration_seconds (histogram),
+// pg_stat_scrape_errors_total (counter), pg_stat_metric_cardinality
+// (gauge — count of metrics emitted on this scrape).
 func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
-	start := time.Now()
-	defer func() {
-		log.Infof("exporter collect took %dms", time.Since(start).Milliseconds())
-	}()
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 
-	// prometheus.Collector.Collect has no ctx argument, so we derive one here.
-	// Every collector honours this deadline via [collectors.Collector.Scrape].
 	ctx, cancel := e.scrapeContext()
 	defer cancel()
 
 	e.totalScrapes.Inc()
 	up := 1
 	group, gctx := errgroup.WithContext(ctx)
-	for _, collector := range e.collectors {
-		collector := collector
-		group.Go(func() error { return collector.Scrape(gctx, ch) })
+	for _, nc := range e.collectors {
+		nc := nc
+		group.Go(func() error {
+			return e.instrument(gctx, nc, ch)
+		})
 	}
 	if err := group.Wait(); err != nil {
 		up = 0
@@ -220,6 +269,30 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	}
 	ch <- prometheus.MustNewConstMetric(e.up.Desc(), prometheus.GaugeValue, float64(up))
 	ch <- e.totalScrapes
+	e.scrapeDuration.Collect(ch)
+	e.scrapeErrors.Collect(ch)
+	e.metricCardinality.Collect(ch)
+}
+
+// instrument runs one collector's Scrape through a counting channel
+// so the exporter can record per-collector duration, errors, and the
+// metric-emission count. The counting adapter runs every metric through
+// a small goroutine so the collector's blocking writes don't observe
+// the extra hop — latency overhead is a single channel send, not a
+// goroutine spin-up per metric.
+func (e *Exporter) instrument(ctx context.Context, nc collectors.NamedCollector, ch chan<- prometheus.Metric) error {
+	start := time.Now()
+	counted := newCountingChan(ch)
+	err := nc.Collector.Scrape(ctx, counted.in)
+	n := counted.close()
+
+	e.scrapeDuration.WithLabelValues(nc.Name).Observe(time.Since(start).Seconds())
+	e.metricCardinality.WithLabelValues(nc.Name).Set(float64(n))
+	if err != nil {
+		e.scrapeErrors.WithLabelValues(nc.Name).Inc()
+		return err
+	}
+	return nil
 }
 
 // scrapeContext returns a context bounded by [Exporter.collectionTimeout].
@@ -230,4 +303,34 @@ func (e *Exporter) scrapeContext() (context.Context, context.CancelFunc) {
 		return context.WithCancel(context.Background())
 	}
 	return context.WithTimeout(context.Background(), e.collectionTimeout)
+}
+
+// countingChan forwards metrics to the outer channel while incrementing
+// a counter. A single fan-in goroutine owns the count so writers see
+// their normal channel-send semantics.
+type countingChan struct {
+	in   chan prometheus.Metric
+	done chan int
+}
+
+func newCountingChan(dst chan<- prometheus.Metric) *countingChan {
+	c := &countingChan{
+		in:   make(chan prometheus.Metric, 64),
+		done: make(chan int, 1),
+	}
+	go func() {
+		n := 0
+		for m := range c.in {
+			dst <- m
+			n++
+		}
+		c.done <- n
+	}()
+	return c
+}
+
+// close signals the forwarder to drain and returns the emitted count.
+func (c *countingChan) close() int {
+	close(c.in)
+	return <-c.done
 }

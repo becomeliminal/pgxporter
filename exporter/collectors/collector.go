@@ -102,10 +102,14 @@ func SetMetricPrefix(p MetricPrefix) {
 }
 
 // DefaultCollectors returns every default-enabled collector. Equivalent
-// to ResolveCollectors(dbClients, nil, nil) minus the error return.
-// Kept for backward compatibility — new code should prefer
+// to ResolveCollectors(dbClients, nil, nil) minus names and the error
+// return. Kept for backward compatibility — new code should prefer
 // ResolveCollectors with explicit enable/disable semantics.
 func DefaultCollectors(dbClients []*db.Client) []Collector {
-	out, _ := ResolveCollectors(dbClients, nil, nil)
+	named, _ := ResolveCollectors(dbClients, nil, nil)
+	out := make([]Collector, len(named))
+	for i, n := range named {
+		out[i] = n.Collector
+	}
 	return out
 }
