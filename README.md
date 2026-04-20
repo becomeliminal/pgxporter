@@ -454,6 +454,10 @@ All self-metrics carry a `database=<Opts.Name>` const label when `Opts.Name` is 
 
 Apache-2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE). Relicensed from AGPL-3.0 in April 2026 to align with the Prometheus exporter ecosystem (`postgres_exporter`, `client_golang`, `exporter-toolkit` are all Apache-2.0) and unblock corporate adoption blocked by AGPL §13 network-distribution obligations.
 
+## Dashboards
+
+See [dashboards/](dashboards/) for `pgxporter-health.json` (exporter self-metrics) plus the compatibility guide for reusing community postgres_exporter dashboards via `MetricPrefixPg`.
+
 ## Benchmarks
 
 See [BENCHMARKS.md](BENCHMARKS.md) for head-to-head scrape-duration numbers.
