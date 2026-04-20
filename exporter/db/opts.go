@@ -4,9 +4,10 @@ import (
 	"time"
 )
 
-// Opts specify the configuration for a postgres client.
+// Opts specify the configuration for a postgres client. The struct tags
+// drive go-flags / env parsing so a host binary can expose every field
+// as a CLI flag and environment variable without additional glue.
 type Opts struct {
-	//
 	Host            string `long:"postgres_host"     env:"POSTGRES_HOST"     default:"localhost" description:"Postgres host"`
 	Port            int    `long:"postgres_port"     env:"POSTGRES_PORT"     default:"5432"     description:"Postgres port"`
 	User            string `long:"postgres_user"     env:"POSTGRES_USER"     default:"postgres" description:"Postgres username"`

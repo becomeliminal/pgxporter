@@ -404,7 +404,8 @@ type PgStatIOUserTable struct {
 	TidxBlksHit   pgtype.Int8 `db:"tidx_blks_hit"`
 }
 
-// PgStatUserIndexes contains information on user indexes.
+// PgStatUserIndex is one row from pg_stat_user_indexes — per-index scan
+// and tuple counters for every non-system index on the cluster.
 type PgStatUserIndex struct {
 	Database      pgtype.Text `db:"database"`
 	SchemaName    pgtype.Text `db:"schemaname"`
