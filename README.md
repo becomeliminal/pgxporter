@@ -161,3 +161,47 @@ spec:
 
 ```
 
+### Serving metrics over TLS / with basic auth
+
+pgxporter is a Prometheus `Collector` implementation — it stays framework-agnostic and doesn't bundle an HTTP server, so use any `net/http` listener you already run. For production setups matching `postgres_exporter`'s ergonomics, pair with [`prometheus/exporter-toolkit`](https://github.com/prometheus/exporter-toolkit), which provides a `--web.config.file` flag covering TLS, basic auth, and HTTP/2 out of the box:
+
+```golang
+import (
+	"context"
+	"net/http"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/prometheus/exporter-toolkit/web"
+	webflag "github.com/prometheus/exporter-toolkit/web/kingpinflag"
+
+	"github.com/becomeliminal/pgxporter/exporter"
+	"github.com/becomeliminal/pgxporter/exporter/db"
+)
+
+func main() {
+	webConfig := webflag.AddFlags(kingpin.CommandLine, ":9187")
+	kingpin.Parse()
+
+	exp := exporter.MustNew(context.Background(), exporter.Opts{DBOpts: []db.Opts{opts.DB}})
+	exp.Register()
+
+	http.Handle("/metrics", promhttp.Handler())
+	srv := &http.Server{}
+	if err := web.ListenAndServe(srv, webConfig, slog.Default()); err != nil {
+		log.Fatal(err)
+	}
+}
+```
+
+`--web.config.file` YAML (per [exporter-toolkit docs](https://github.com/prometheus/exporter-toolkit/blob/master/docs/web-configuration.md)):
+
+```yaml
+tls_server_config:
+  cert_file: /etc/pgxporter/tls.crt
+  key_file: /etc/pgxporter/tls.key
+basic_auth_users:
+  prometheus: $2b$12$...  # bcrypt
+```
+
+Pair with `exp.Shutdown(ctx)` in your SIGTERM handler to drain in-flight scrapes and close pgxpool connections cleanly before exit.
+
