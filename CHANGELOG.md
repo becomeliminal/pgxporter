@@ -6,25 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-### Changed
-
-- **Collectors migrated from `prometheus.MustNewConstMetric` to stateful `*prometheus.CounterVec` / `*prometheus.GaugeVec` children.** Every collector (plus the declarative `SpecCollector` runner) now registers its metrics at construction time and mutates cached children on each scrape, rather than allocating fresh metric objects per emission. Per-scrape allocations drop from ~10,700 to ~1,600 (−85%); per-scrape bytes drop from ~530 KB to ~207 KB (−60%); wall time improves ~18%. Counter semantics are preserved via a `counterDelta` helper that tracks last-observed absolute values per label combo and calls `Add(delta)`, handling counter resets via `DeleteLabelValues` + fresh Add so Prometheus's `rate()` / `increase()` reset detection still works. No user-facing API change.
-- Internal ticket IDs and `linear.app` URLs scrubbed from repo files (comments, CHANGELOG, docs, `NOTICE`).
-
-### Added
-
-#### Collectors
-
-- `pg_stat_ssl` — aggregate TLS connection counts grouped by `(ssl, version, cipher, bits)`. Default on.
-- `pg_stat_subscription` (+ `pg_stat_subscription_stats` on PG 15+) — logical-replication subscriber state, aggregated per subname. Default off.
-- `pg_settings` — numeric-typed subset of `pg_settings` (`bool`, `integer`, `real`), with bools mapped to 0/1 server-side. Default off.
-
-- Integration matrix tests for `pg_stat_statements`, `pg_stat_user_indexes`, `pg_statio_user_tables`, `pg_statio_user_indexes` — closes a coverage gap so every collector's SELECT is now exercised against PG 13–18 on each CI run.
-- `BenchmarkExporterCollectMultiDB` — 1/4/16-DB fan-out scaling benchmark. `BenchmarkExporterCollectColdVsWarm` — prepared-statement-cache on vs off. Numbers in BENCHMARKS.md.
-
 ## [1.0.0-rc1] — 2026-04-20
 
-First public release candidate for pgxporter. Targets parity with the 80/20 of `prometheus-community/postgres_exporter` on top of a pgx v5 / scany v2 foundation, with cloud IAM auth and a declarative collector extension path as the two headline differentiators. GA (`v1.0.0`) follows a dogfood window.
+First public release candidate for pgxporter. Targets parity with the 80/20 of `prometheus-community/postgres_exporter` on top of a pgx v5 / scany v2 foundation, with cloud IAM auth, a declarative collector extension path, and three first-mover collectors (`pg_stat_io`, `pg_stat_slru`, `pg_stat_ssl`, `pg_stat_subscription`) as the headline differentiators. 27 collectors total (24 default-on). GA (`v1.0.0`) follows a dogfood window.
+
+### Changed from the v0.3.0 baseline
+
+- **Collectors use stateful `*prometheus.CounterVec` / `*prometheus.GaugeVec` children instead of per-emission `MustNewConstMetric`.** Every collector (plus the declarative `SpecCollector` runner) now registers its metrics at construction time and mutates cached children on each scrape. Per-scrape allocations drop from ~10,700 to ~1,600 (−85%); per-scrape bytes drop from ~530 KB to ~207 KB (−60%); wall time improves ~18%. Counter semantics are preserved via a `counterDelta` helper that tracks last-observed absolute values per label combo and calls `Add(delta)`, handling counter resets via `DeleteLabelValues` + fresh Add so Prometheus's `rate()` / `increase()` reset detection still works. No user-facing API change.
 
 ### Added
 
@@ -45,6 +33,9 @@ First public release candidate for pgxporter. Targets parity with the 80/20 of `
 - Full-fidelity `pg_stat_activity` rewrite with `wait_event_type`, `wait_event`, `backend_type`, `application_name`, `state` labels.
 - `pg_locks` rewrite with `pg_blocking_pids()` blocking-chain detection.
 - `pg_stat_user_tables` — added PG 13–17 columns `last_seq_scan`, `n_tup_newpage_upd`, `n_ins_since_vacuum` with runtime version gating.
+- `pg_stat_ssl` — aggregate TLS connection counts grouped by `(ssl, version, cipher, bits)`. Default on. postgres_exporter has no equivalent.
+- `pg_stat_subscription` (+ `pg_stat_subscription_stats` on PG 15+) — logical-replication subscriber state, aggregated per subname. Default off. postgres_exporter has no equivalent.
+- `pg_settings` — numeric-typed subset of `pg_settings` (`bool`, `integer`, `real`), with bools mapped to 0/1 server-side. Default off (cardinality-bounded opt-in).
 
 #### Cloud & auth
 
@@ -77,6 +68,8 @@ First public release candidate for pgxporter. Targets parity with the 80/20 of `
 - Unit-test scaffolding with NULL-handling coverage per collector.
 - GitHub Actions CI — build, vet, test, golangci-lint v2.
 - `go test -bench` scrape benchmark + `BENCHMARKS.md`.
+- `BenchmarkExporterCollectMultiDB` (1/4/16-DB fan-out scaling) and `BenchmarkExporterCollectColdVsWarm` (prepared-statement-cache on vs off). Numbers in `BENCHMARKS.md`.
+- Integration matrix coverage for every collector's SELECT against PG 13.22 / 14.19 / 15.14 / 16.10 / 17.6 / 18.0 — no collector is shipped without a schema-drift guard.
 
 #### Docs
 
@@ -87,7 +80,7 @@ First public release candidate for pgxporter. Targets parity with the 80/20 of `
 
 #### Benchmarks
 
-- Head-to-head HTTP-scrape benchmark vs postgres_exporter v0.19.1. Both exporters run as subprocesses against identical fresh PG 17.6 instances with seeded fixtures, measured strictly from the client side so allocation numbers are symmetric. Results at 2026-04-20: pgxporter **4.6× faster** wall time (8.5 ms vs 38.9 ms) and emits 31% more series. Full methodology + raw numbers in `benchmarks/head-to-head/`.
+- Head-to-head HTTP-scrape benchmark vs postgres_exporter v0.19.1. Both exporters run as subprocesses against identical fresh PG 17.6 instances with seeded fixtures, measured strictly from the client side so allocation numbers are symmetric. Representative 2026-04-20 numbers: pgxporter **8.7 ms / 2,610 series** vs postgres_exporter 20.2 ms / 1,967 series — **~2.3× faster wall time, 33% more metrics**. Full methodology + raw numbers in `benchmarks/head-to-head/`.
 - Upgraded `cmd/main.go` from a 10-line stub to a minimal reference CLI — serves `/metrics` via promhttp, reads DSN from `DATA_SOURCE_NAME`, supports `--web.listen-address`, `--web.telemetry-path`, `--collection-timeout`, `--log.level`, handles SIGTERM cleanly via `Exporter.Shutdown`. Primary driver: the head-to-head benchmark now compiles and runs pgxporter as a subprocess for methodologically fair comparison against postgres_exporter's binary.
 
 ### Changed
