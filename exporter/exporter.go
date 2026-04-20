@@ -118,7 +118,7 @@ func New(ctx context.Context, opts Opts) (*Exporter, error) {
 	if resolveErr != nil {
 		// Non-fatal: typos shouldn't brick the exporter. Log and use
 		// whatever subset resolved cleanly.
-		log.Warnf("collector resolution: %v", resolveErr)
+		log.Warn("collector resolution", "err", resolveErr)
 	}
 
 	e := &Exporter{
@@ -265,7 +265,7 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	}
 	if err := group.Wait(); err != nil {
 		up = 0
-		log.Errorf("collecting: %v", err)
+		log.Error("collecting", "err", err)
 	}
 	ch <- prometheus.MustNewConstMetric(e.up.Desc(), prometheus.GaugeValue, float64(up))
 	ch <- e.totalScrapes

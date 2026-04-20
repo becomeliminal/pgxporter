@@ -103,7 +103,7 @@ func New(ctx context.Context, opts Opts) (*Client, error) {
 		if err := client.probeServerVersion(ctx); err != nil {
 			// Non-fatal: a collector that version-gates will treat zero as
 			// "unknown". Log and keep going.
-			log.Warnf("could not detect Postgres server version: %v", err)
+			log.Warn("could not detect Postgres server version", "err", err)
 		}
 		return client, nil
 	}
@@ -120,7 +120,7 @@ func (c *Client) probeServerVersion(ctx context.Context) error {
 		return err
 	}
 	c.ServerVersionNum = v
-	log.Infof("connected to Postgres %d.%d (server_version_num=%d)", v/10000, v%10000, v)
+	log.Info("connected to Postgres", "major", v/10000, "minor", v%10000, "server_version_num", v)
 	return nil
 }
 
