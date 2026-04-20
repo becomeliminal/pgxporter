@@ -15,10 +15,15 @@ linters:
     - unused
   settings:
     staticcheck:
+      # v1.x limited staticcheck to SA-* (correctness) checks by default;
+      # v2.x also runs ST-* (style) + QF-* (quickfix). We intentionally
+      # stay at SA-only — style nits should be a separate, deliberate
+      # cleanup, not a side effect of taking a CVE fix.
+      #
       # SA5008 flags duplicate struct tags, but go-flags (our CLI parser)
       # uses multiple `choice:` tags per field to constrain enum values.
       # Can't be avoided without rewriting flag definitions.
-      checks: ["all", "-SA5008"]
+      checks: ["SA*", "-SA5008"]
 
 formatters:
   enable:
