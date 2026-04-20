@@ -457,3 +457,11 @@ Apache-2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE). Relicensed from AGPL
 ## Benchmarks
 
 See [BENCHMARKS.md](BENCHMARKS.md) for head-to-head scrape-duration numbers.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md).
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).

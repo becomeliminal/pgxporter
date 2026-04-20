@@ -1,0 +1,107 @@
+# Changelog
+
+All notable changes to this project are documented in this file.
+
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and starting with v1.0.0 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Pre-1.0 releases treated breaking changes as minor bumps.
+
+## [Unreleased]
+
+First public release of pgxporter. Targets parity with the 80/20 of `prometheus-community/postgres_exporter` on top of a pgx v5 / scany v2 foundation, with cloud IAM auth and a declarative collector extension path as the two headline differentiators.
+
+### Added
+
+#### Collectors
+
+- `pg_stat_database` — xact, block IO, tuple, conflict, deadlock counters (LIM-1014).
+- `pg_stat_bgwriter` with PG 17 split handling (LIM-1015).
+- `pg_stat_checkpointer` — PG 17+ new view (LIM-1016).
+- `pg_stat_archiver` — WAL-archive monitoring (LIM-1017).
+- `pg_stat_replication` — primary-side replica lag (LIM-1018).
+- `pg_stat_wal_receiver` — standby-side (LIM-1019).
+- `pg_replication_slots` — slot retention + status (LIM-1020).
+- `pg_database_size` via `pg_database_size()` (LIM-1021).
+- `pg_stat_wal` — PG 14+ WAL write stats (LIM-1022).
+- `pg_stat_io` — PG 16+ per-backend-type I/O; postgres_exporter has no equivalent (LIM-1029).
+- `pg_stat_slru` — PG 13+ SLRU cache stats; postgres_exporter has no equivalent (LIM-1030).
+- `pg_stat_progress_vacuum` (LIM-1025) + `analyze` / `basebackup` / `copy` / `create_index` / `cluster` (LIM-1026) — full progress suite.
+- Full-fidelity `pg_stat_activity` rewrite with `wait_event_type`, `wait_event`, `backend_type`, `application_name`, `state` labels (LIM-1023).
+- `pg_locks` rewrite with `pg_blocking_pids()` blocking-chain detection (LIM-1024).
+- `pg_stat_user_tables` — added PG 13–17 columns `last_seq_scan`, `n_tup_newpage_upd`, `n_ins_since_vacuum` with runtime version gating (LIM-1012).
+
+#### Cloud & auth
+
+- `db.AuthProvider` interface — `Password(ctx, host, port, user) (string, error)` — for cloud-IAM auth via pgx v5's `BeforeConnect` hook (LIM-1027).
+- `awsrds.NewDefault(ctx, region)` — AWS RDS IAM token provider wiring the default AWS credentials chain (env → shared config → IRSA → IMDS).
+
+#### Extensibility
+
+- Declarative `CollectorSpec` runner with version gating, label columns, and counter/gauge types (LIM-1031).
+- `Exporter.ExtendFromYAMLFile(path)` — queries.yaml replacement for runtime-loaded custom collectors (LIM-1032).
+- `Opts.MetricPrefix` + `collectors.SetMetricPrefix` — flip to `MetricPrefixPg` for postgres_exporter dashboard-name compatibility (LIM-1033).
+- `Opts.EnabledCollectors` / `Opts.DisabledCollectors` — per-collector toggles (LIM-1034).
+
+#### Observability of self
+
+- `pg_stat_scrape_duration_seconds` histogram per-collector (LIM-1035).
+- `pg_stat_scrape_errors_total` counter per-collector, pre-initialised to zero so `rate()` returns a clean baseline (LIM-1036).
+- `pg_stat_metric_cardinality` gauge per-collector — early-warning for cardinality explosions (LIM-1037).
+
+#### Operational polish
+
+- `Exporter.Shutdown(ctx)` — bounded graceful shutdown; drains in-flight scrapes under the mutex, closes every pgxpool (LIM-1042).
+- `Opts.CollectionTimeout` — per-scrape deadline propagated to every collector's `ctx` (LIM-1041).
+
+#### Foundation & tooling
+
+- Runtime PostgreSQL version detection cached on `db.Client.ServerVersionNum` + `Client.AtLeast(major, minor)` helper (LIM-1013).
+- Prometheus scrape-context propagation end-to-end — `Collector.Scrape(ctx, ch)` (LIM-1006).
+- Real-Postgres integration test matrix across PG 13.22 / 14.19 / 15.14 / 16.10 / 17.6 / 18.0 (LIM-1010, LIM-1011).
+- Unit-test scaffolding with NULL-handling coverage per collector (LIM-1008).
+- GitHub Actions CI — build, vet, test, golangci-lint v2 (LIM-1009).
+- `go test -bench` scrape benchmark + `BENCHMARKS.md` (LIM-1028).
+
+#### Docs
+
+- README rewrite with feature matrix, 24-collector table, quickstart (LIM-1047).
+- `docs/migrating-from-postgres_exporter.md` — full switch-over guide (LIM-1050).
+- Per-package godoc + `doc.go` for every package (LIM-1049).
+- README section on exporter-toolkit TLS + basic auth (LIM-1039).
+
+### Changed
+
+- **Relicensed from AGPL-3.0 to Apache-2.0** (LIM-1046) — aligns with the Prometheus exporter ecosystem; removes the adoption blocker posed by AGPL §13.
+- Replaced `logrus` with stdlib `log/slog`; dropped noisy per-scrape INFO logs (LIM-1038).
+- Removed latent-deadlock `Collect()` methods on per-collector mutexes (LIM-1007). Internal change only; no user-facing API impact — but removes a footgun for anyone who registered a collector directly.
+
+### Removed
+
+- Unimplemented `AuthMechanism=client_certificates` stub and its `configureAuthParams` dead switch (LIM-1040). Use `AuthProvider` for anything beyond password auth.
+
+### Security
+
+- Refreshed dependencies including pgx 5.9.2 (CVE patch) and Go 1.25 toolchain (#38).
+
+## [0.3.0] — 2026-04-18
+
+### Changed
+
+- Migrated to pgx v5 + scany v2 with `pgtype`-everywhere row scans. Fixes a long-standing bug where partitioned-table parents under PG 17 returned NULL counters and the old `int` model type crashed every scrape. Also fixes a pre-existing `fmt.Sprintf("%w", err)` vet error that was printing `%!w(*fmt.wrapError=…)` garbage and obscuring real error messages.
+
+## [0.2.0] — 2026-04-17
+
+### Changed
+
+- Module-path / packaging cleanup. Internal-only release.
+
+## [0.1.0] — 2026-04-17
+
+### Added
+
+- Initial public tag. Collectors for `pg_stat_activity` (reduced to count + max transaction duration), `pg_stat_statements`, `pg_locks`, `pg_stat_user_tables`, `pg_stat_user_indexes`, `pg_statio_user_tables`, `pg_statio_user_indexes`.
+- `exporter.Exporter` driving collectors in parallel via `errgroup`.
+- `db.Client` wrapping pgx/pgxpool with per-DB opts.
+
+[Unreleased]: https://github.com/becomeliminal/pgxporter/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/becomeliminal/pgxporter/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/becomeliminal/pgxporter/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/becomeliminal/pgxporter/releases/tag/v0.1.0

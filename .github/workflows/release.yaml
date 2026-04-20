@@ -1,0 +1,65 @@
+name: Release
+
+# Library-only release automation. On a vX.Y.Z tag push:
+#   1. Extract the matching CHANGELOG.md section as release notes.
+#   2. Create a draft GitHub Release so a maintainer can sanity-check
+#      before publishing.
+#
+# Binary / container publishing is intentionally out of scope today —
+# pgxporter is a library and cmd/main.go is a CI-only stub. See
+# CONTRIBUTING.md for the release policy.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Draft GitHub release from CHANGELOG
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract release notes from CHANGELOG
+        id: notes
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          # Accept tag "v1.0.0" → CHANGELOG anchor "[1.0.0]".
+          version="${tag#v}"
+
+          # Pull the section between "## [version]" and the next "## " header.
+          notes=$(awk -v v="$version" '
+            $0 ~ "^## \\[" v "\\]" { found=1; next }
+            found && $0 ~ "^## " { exit }
+            found { print }
+          ' CHANGELOG.md)
+
+          if [ -z "$(echo "$notes" | tr -d '[:space:]')" ]; then
+            echo "::error::no CHANGELOG section for version $version — update CHANGELOG.md before tagging"
+            exit 1
+          fi
+
+          # Write to a file rather than GITHUB_OUTPUT so we preserve
+          # multi-line formatting exactly.
+          {
+            echo "Release notes for $tag (source: CHANGELOG.md)"
+            echo
+            echo "$notes"
+          } > release-notes.md
+
+          echo "notes_path=release-notes.md" >> "$GITHUB_OUTPUT"
+
+      - name: Create draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          name: ${{ github.ref_name }}
+          body_path: ${{ steps.notes.outputs.notes_path }}
+          fail_on_unmatched_files: false
