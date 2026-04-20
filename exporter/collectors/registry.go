@@ -89,6 +89,16 @@ func AvailableCollectors() []string {
 	return names
 }
 
+// NamedCollector pairs a stable collector name with a constructed
+// Collector. Returned by ResolveCollectors so the exporter can thread
+// the name through to self-metrics (scrape duration, errors, metric
+// cardinality) and log attributes without needing every Collector to
+// implement a Name() method.
+type NamedCollector struct {
+	Name      string
+	Collector Collector
+}
+
 // ResolveCollectors returns the collectors to run given enable/disable
 // sets. Semantics:
 //
@@ -102,7 +112,7 @@ func AvailableCollectors() []string {
 // Unknown names (in either set) are returned as a non-fatal error so
 // the caller can log and proceed: a typo in --no-collector.whatever
 // shouldn't brick the exporter.
-func ResolveCollectors(dbClients []*db.Client, enabled, disabled []string) ([]Collector, error) {
+func ResolveCollectors(dbClients []*db.Client, enabled, disabled []string) ([]NamedCollector, error) {
 	known := make(map[string]collectorEntry, len(collectorRegistry))
 	for _, e := range collectorRegistry {
 		known[e.Name] = e
@@ -126,7 +136,7 @@ func ResolveCollectors(dbClients []*db.Client, enabled, disabled []string) ([]Co
 		disabledSet[name] = true
 	}
 
-	out := make([]Collector, 0, len(collectorRegistry))
+	out := make([]NamedCollector, 0, len(collectorRegistry))
 	// When enabled is non-empty (even if every entry was unknown), the
 	// user has asked for an explicit set: "only these". Falling back to
 	// defaults because every requested name is unknown would surprise
@@ -141,7 +151,7 @@ func ResolveCollectors(dbClients []*db.Client, enabled, disabled []string) ([]Co
 			include = false
 		}
 		if include {
-			out = append(out, e.New(dbClients))
+			out = append(out, NamedCollector{Name: e.Name, Collector: e.New(dbClients)})
 		}
 	}
 

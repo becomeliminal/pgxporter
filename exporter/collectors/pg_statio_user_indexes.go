@@ -3,7 +3,6 @@ package collectors
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
@@ -49,10 +48,6 @@ func (c *PgStatIOUserIndexesCollector) Describe(ch chan<- *prometheus.Desc) {
 
 // Scrape implements our Scraper interface.
 func (c *PgStatIOUserIndexesCollector) Scrape(ctx context.Context, ch chan<- prometheus.Metric) error {
-	start := time.Now()
-	defer func() {
-		log.Infof("I/O user index scrape took %dms", time.Since(start).Milliseconds())
-	}()
 	group, gctx := errgroup.WithContext(ctx)
 	for _, dbClient := range c.dbClients {
 		dbClient := dbClient

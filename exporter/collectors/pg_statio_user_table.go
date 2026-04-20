@@ -3,7 +3,6 @@ package collectors
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/prometheus/client_golang/prometheus"
@@ -99,10 +98,6 @@ func (c *PgStatIOUserTableCollector) Describe(ch chan<- *prometheus.Desc) {
 
 // Scrape implements our Scraper interface.
 func (c *PgStatIOUserTableCollector) Scrape(ctx context.Context, ch chan<- prometheus.Metric) error {
-	start := time.Now()
-	defer func() {
-		log.Infof("I/O user table scrape took %dms", time.Since(start).Milliseconds())
-	}()
 	group, gctx := errgroup.WithContext(ctx)
 	for _, dbClient := range c.dbClients {
 		dbClient := dbClient

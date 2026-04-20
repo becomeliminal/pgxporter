@@ -139,10 +139,6 @@ func (c *SpecCollector) Describe(ch chan<- *prometheus.Desc) {
 // applied per-dbClient so a single pre-version server doesn't silence
 // the whole collector in a heterogeneous deployment.
 func (c *SpecCollector) Scrape(ctx context.Context, ch chan<- prometheus.Metric) error {
-	start := time.Now()
-	defer func() {
-		log.Infof("spec(%s) scrape took %dms", c.spec.Subsystem, time.Since(start).Milliseconds())
-	}()
 	group, gctx := errgroup.WithContext(ctx)
 	for _, dbClient := range c.dbClients {
 		dbClient := dbClient

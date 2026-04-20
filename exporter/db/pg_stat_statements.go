@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"time"
 
 	"github.com/becomeliminal/pgxporter/exporter/db/model"
 )
@@ -40,11 +39,9 @@ WHERE t2.rolname != 'rdsadmin'`
 
 // SelectPgStatStatements selects stats on user tables.
 func (db *Client) SelectPgStatStatements(ctx context.Context) ([]*model.PgStatStatement, error) {
-	start := time.Now()
 	pgStatStatements := []*model.PgStatStatement{}
 	if err := db.Select(ctx, &pgStatStatements, sqlSelectPgStatStatements); err != nil {
 		return nil, err
 	}
-	log.Infof("%s select statements took %dms", db.opts.Database, time.Since(start).Milliseconds())
 	return pgStatStatements, nil
 }

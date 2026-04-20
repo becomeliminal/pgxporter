@@ -3,7 +3,6 @@ package collectors
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/prometheus/client_golang/prometheus"
@@ -64,10 +63,6 @@ func (c *PgStatProgressAnalyzeCollector) Describe(ch chan<- *prometheus.Desc) {
 
 // Scrape implements our Scraper interface.
 func (c *PgStatProgressAnalyzeCollector) Scrape(ctx context.Context, ch chan<- prometheus.Metric) error {
-	start := time.Now()
-	defer func() {
-		log.Infof("progress_analyze scrape took %dms", time.Since(start).Milliseconds())
-	}()
 	group, gctx := errgroup.WithContext(ctx)
 	for _, dbClient := range c.dbClients {
 		dbClient := dbClient
@@ -138,10 +133,6 @@ func (c *PgStatProgressBasebackupCollector) Describe(ch chan<- *prometheus.Desc)
 
 // Scrape implements our Scraper interface.
 func (c *PgStatProgressBasebackupCollector) Scrape(ctx context.Context, ch chan<- prometheus.Metric) error {
-	start := time.Now()
-	defer func() {
-		log.Infof("progress_basebackup scrape took %dms", time.Since(start).Milliseconds())
-	}()
 	group, gctx := errgroup.WithContext(ctx)
 	for _, dbClient := range c.dbClients {
 		dbClient := dbClient
@@ -210,10 +201,6 @@ func (c *PgStatProgressCopyCollector) Describe(ch chan<- *prometheus.Desc) {
 
 // Scrape implements our Scraper interface.
 func (c *PgStatProgressCopyCollector) Scrape(ctx context.Context, ch chan<- prometheus.Metric) error {
-	start := time.Now()
-	defer func() {
-		log.Infof("progress_copy scrape took %dms", time.Since(start).Milliseconds())
-	}()
 	group, gctx := errgroup.WithContext(ctx)
 	for _, dbClient := range c.dbClients {
 		dbClient := dbClient
@@ -294,10 +281,6 @@ func (c *PgStatProgressCreateIndexCollector) Describe(ch chan<- *prometheus.Desc
 
 // Scrape implements our Scraper interface.
 func (c *PgStatProgressCreateIndexCollector) Scrape(ctx context.Context, ch chan<- prometheus.Metric) error {
-	start := time.Now()
-	defer func() {
-		log.Infof("progress_create_index scrape took %dms", time.Since(start).Milliseconds())
-	}()
 	group, gctx := errgroup.WithContext(ctx)
 	for _, dbClient := range c.dbClients {
 		dbClient := dbClient
@@ -376,10 +359,6 @@ func (c *PgStatProgressClusterCollector) Describe(ch chan<- *prometheus.Desc) {
 
 // Scrape implements our Scraper interface.
 func (c *PgStatProgressClusterCollector) Scrape(ctx context.Context, ch chan<- prometheus.Metric) error {
-	start := time.Now()
-	defer func() {
-		log.Infof("progress_cluster scrape took %dms", time.Since(start).Milliseconds())
-	}()
 	group, gctx := errgroup.WithContext(ctx)
 	for _, dbClient := range c.dbClients {
 		dbClient := dbClient
