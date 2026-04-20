@@ -690,3 +690,90 @@ func parseMajor(t *testing.T, version string) int {
 	}
 	return maj
 }
+
+// TestMatrix_SelectPgStatUserIndexes runs the SELECT against every PG
+// version to catch schema drift on pg_stat_user_indexes columns.
+func TestMatrix_SelectPgStatUserIndexes(t *testing.T) {
+	for _, tc := range pgVersionsUnderTest {
+		t.Run(tc.name, func(t *testing.T) {
+			client := connectPG(t, tc.version)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			rows, err := client.SelectPgStatUserIndexes(ctx)
+			if err != nil {
+				t.Fatalf("SelectPgStatUserIndexes: %v", err)
+			}
+			// Fresh PG may have zero user indexes; SELECT completing is enough.
+			_ = rows
+		})
+	}
+}
+
+// TestMatrix_SelectPgStatIOUserTables runs the SELECT against every PG
+// version to catch schema drift on pg_statio_user_tables columns.
+func TestMatrix_SelectPgStatIOUserTables(t *testing.T) {
+	for _, tc := range pgVersionsUnderTest {
+		t.Run(tc.name, func(t *testing.T) {
+			client := connectPG(t, tc.version)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			rows, err := client.SelectPgStatIOUserTables(ctx)
+			if err != nil {
+				t.Fatalf("SelectPgStatIOUserTables: %v", err)
+			}
+			_ = rows
+		})
+	}
+}
+
+// TestMatrix_SelectPgStatIOUserIndexes runs the SELECT against every PG
+// version to catch schema drift on pg_statio_user_indexes columns.
+func TestMatrix_SelectPgStatIOUserIndexes(t *testing.T) {
+	for _, tc := range pgVersionsUnderTest {
+		t.Run(tc.name, func(t *testing.T) {
+			client := connectPG(t, tc.version)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			rows, err := client.SelectPgStatIOUserIndexes(ctx)
+			if err != nil {
+				t.Fatalf("SelectPgStatIOUserIndexes: %v", err)
+			}
+			_ = rows
+		})
+	}
+}
+
+// TestMatrix_SelectPgStatStatements runs the SELECT against every PG
+// version to catch schema drift. pg_stat_statements requires the
+// extension to be loaded, which the testutil harness does via
+// shared_preload_libraries; if it isn't, we skip rather than fail since
+// pg_stat_statements availability is an operator-side configuration
+// concern, not a schema correctness question.
+func TestMatrix_SelectPgStatStatements(t *testing.T) {
+	for _, tc := range pgVersionsUnderTest {
+		t.Run(tc.name, func(t *testing.T) {
+			client := connectPG(t, tc.version)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			var extExists bool
+			if err := client.pool.QueryRow(ctx,
+				`SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements')`,
+			).Scan(&extExists); err != nil {
+				t.Fatalf("pg_extension probe: %v", err)
+			}
+			if !extExists {
+				t.Skipf("pg_stat_statements extension not loaded on PG %s test harness", tc.version)
+			}
+
+			rows, err := client.SelectPgStatStatements(ctx)
+			if err != nil {
+				t.Fatalf("SelectPgStatStatements: %v", err)
+			}
+			_ = rows
+		})
+	}
+}
