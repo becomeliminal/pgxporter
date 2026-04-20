@@ -89,8 +89,8 @@ Raw results: [`benchmarks/head-to-head/results/pg-17.6-defaults.txt`](benchmarks
 
 | Metric | pgxporter | postgres_exporter v0.19.1 | Delta |
 | --- | --- | --- | --- |
-| Scrape wall time (sec/op) | **7.8 ms** | 21.4 ms | pgxporter **2.8× faster** |
-| Series emitted per scrape | **2,593** | 1,967 | pgxporter **+31% coverage** |
+| Scrape wall time (sec/op) | **8.7 ms** | 20.2 ms | pgxporter **2.3× faster** |
+| Series emitted per scrape | **2,610** | 1,967 | pgxporter **+33% coverage** |
 | Response body (bytes/scrape) | 275 KiB | 229 KiB | pgxporter +20% (more metrics) |
 | Client-side B/op | 1.12 MiB | 628 KiB | pgxporter +82% (larger response to buffer) |
 | Client-side allocs/op | 101 | 100 | essentially identical |

@@ -26,8 +26,11 @@ const (
 	CollectorProgressVacuum      = "progress_vacuum"
 	CollectorReplication         = "replication"
 	CollectorReplicationSlots    = "replication_slots"
+	CollectorSettings            = "settings"
 	CollectorSLRU                = "slru"
+	CollectorSSL                 = "ssl"
 	CollectorStatements          = "statements"
+	CollectorSubscription        = "subscription"
 	CollectorUserIndexes         = "user_indexes"
 	CollectorUserTables          = "user_tables"
 	CollectorIOUserIndexes       = "io_user_indexes"
@@ -67,11 +70,19 @@ var collectorRegistry = []collectorEntry{
 	{CollectorProgressVacuum, true, func(c []*db.Client) Collector { return NewPgStatProgressVacuumCollector(c) }},
 	{CollectorReplication, true, func(c []*db.Client) Collector { return NewPgStatReplicationCollector(c) }},
 	{CollectorReplicationSlots, true, func(c []*db.Client) Collector { return NewPgReplicationSlotsCollector(c) }},
+	// Settings is off by default — pg_settings has ~400 rows per database
+	// and that multiplies by the number of monitored databases. Users opt
+	// in via EnabledCollectors: []string{CollectorSettings}.
+	{CollectorSettings, false, func(c []*db.Client) Collector { return NewPgSettingsCollector(c) }},
 	{CollectorSLRU, true, func(c []*db.Client) Collector { return NewPgStatSLRUCollector(c) }},
+	{CollectorSSL, true, func(c []*db.Client) Collector { return NewPgStatSSLCollector(c) }},
 	// Statements is off by default — pg_stat_statements queries are
 	// expensive on busy clusters and the metric cardinality is high.
 	// Users opt in via EnabledCollectors: []string{CollectorStatements}.
 	{CollectorStatements, false, func(c []*db.Client) Collector { return NewPgStatStatementsCollector(c) }},
+	// Subscription is off by default — logical replication is niche and
+	// the per-subscription label cardinality isn't wanted by most users.
+	{CollectorSubscription, false, func(c []*db.Client) Collector { return NewPgStatSubscriptionCollector(c) }},
 	{CollectorUserIndexes, true, func(c []*db.Client) Collector { return NewPgStatUserIndexesCollector(c) }},
 	{CollectorUserTables, true, func(c []*db.Client) Collector { return NewPgStatUserTableCollector(c) }},
 	{CollectorWAL, true, func(c []*db.Client) Collector { return NewPgStatWalCollector(c) }},

@@ -13,6 +13,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+#### Collectors
+
+- `pg_stat_ssl` — aggregate TLS connection counts grouped by `(ssl, version, cipher, bits)`. Default on.
+- `pg_stat_subscription` (+ `pg_stat_subscription_stats` on PG 15+) — logical-replication subscriber state, aggregated per subname. Default off.
+- `pg_settings` — numeric-typed subset of `pg_settings` (`bool`, `integer`, `real`), with bools mapped to 0/1 server-side. Default off.
+
 - Integration matrix tests for `pg_stat_statements`, `pg_stat_user_indexes`, `pg_statio_user_tables`, `pg_statio_user_indexes` — closes a coverage gap so every collector's SELECT is now exercised against PG 13–18 on each CI run.
 - `BenchmarkExporterCollectMultiDB` — 1/4/16-DB fan-out scaling benchmark. `BenchmarkExporterCollectColdVsWarm` — prepared-statement-cache on vs off. Numbers in BENCHMARKS.md.
 

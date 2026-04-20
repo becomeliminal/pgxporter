@@ -504,6 +504,106 @@ func TestMatrix_SelectPgStatSLRU(t *testing.T) {
 	}
 }
 
+// TestMatrix_SelectPgStatSSL verifies the aggregate pg_stat_ssl SELECT
+// executes cleanly on every supported PG version and returns at least
+// one row (the exporter's own connection is always present).
+func TestMatrix_SelectPgStatSSL(t *testing.T) {
+	for _, tc := range pgVersionsUnderTest {
+		t.Run(tc.name, func(t *testing.T) {
+			client := connectPG(t, tc.version)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			rows, err := client.SelectPgStatSSL(ctx)
+			if err != nil {
+				t.Fatalf("SelectPgStatSSL: %v", err)
+			}
+			if len(rows) == 0 {
+				t.Fatalf("PG %s: expected at least one pg_stat_ssl bucket, got 0", tc.version)
+			}
+			for _, r := range rows {
+				if !r.SSL.Valid || !r.Connections.Valid {
+					t.Errorf("PG %s: bucket missing ssl/connections field", tc.version)
+				}
+			}
+		})
+	}
+}
+
+// TestMatrix_SelectPgStatSubscription verifies the aggregated SELECT
+// executes cleanly across the matrix. A fresh PG has no subscriptions
+// defined so zero rows is expected; the test is a schema-drift guard.
+func TestMatrix_SelectPgStatSubscription(t *testing.T) {
+	for _, tc := range pgVersionsUnderTest {
+		t.Run(tc.name, func(t *testing.T) {
+			client := connectPG(t, tc.version)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			rows, err := client.SelectPgStatSubscription(ctx)
+			if err != nil {
+				t.Fatalf("SelectPgStatSubscription: %v", err)
+			}
+			// No subscriptions on a fresh PG — the view exists but is empty.
+			_ = rows
+		})
+	}
+}
+
+// TestMatrix_SelectPgStatSubscriptionStats verifies the PG 15+ SELECT
+// returns nothing (view absent) on pre-15 and runs cleanly on 15+. No
+// subscriptions means zero rows on every version.
+func TestMatrix_SelectPgStatSubscriptionStats(t *testing.T) {
+	for _, tc := range pgVersionsUnderTest {
+		t.Run(tc.name, func(t *testing.T) {
+			client := connectPG(t, tc.version)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			rows, err := client.SelectPgStatSubscriptionStats(ctx)
+			if err != nil {
+				t.Fatalf("SelectPgStatSubscriptionStats: %v", err)
+			}
+			// Fresh PG has no subscriptions — zero rows on every version,
+			// including PG 15+ where the view exists.
+			_ = rows
+		})
+	}
+}
+
+// TestMatrix_SelectPgSettings verifies the filtered pg_settings SELECT
+// executes cleanly and returns at least one numeric row (max_connections
+// is always present and integer-typed).
+func TestMatrix_SelectPgSettings(t *testing.T) {
+	for _, tc := range pgVersionsUnderTest {
+		t.Run(tc.name, func(t *testing.T) {
+			client := connectPG(t, tc.version)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			rows, err := client.SelectPgSettings(ctx)
+			if err != nil {
+				t.Fatalf("SelectPgSettings: %v", err)
+			}
+			if len(rows) == 0 {
+				t.Fatalf("PG %s: expected at least one pg_settings row, got 0", tc.version)
+			}
+			foundMaxConn := false
+			for _, r := range rows {
+				if r.Name.String == "max_connections" {
+					foundMaxConn = true
+					if !r.Value.Valid || r.Value.Float64 <= 0 {
+						t.Errorf("PG %s: max_connections value invalid", tc.version)
+					}
+				}
+			}
+			if !foundMaxConn {
+				t.Errorf("PG %s: max_connections not in pg_settings output", tc.version)
+			}
+		})
+	}
+}
+
 // TestAuthProvider_BeforeConnectIntegration verifies that a StaticAuthProvider
 // wired via Opts.AuthProvider actually flows through pgx's BeforeConnect hook
 // — i.e. the provider.Password return value becomes the password on the wire.

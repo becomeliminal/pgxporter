@@ -26,8 +26,8 @@ Honest comparison against `postgres_exporter` v0.19.x.
 | **Driver** | pgx/v5 (actively maintained) | lib/pq (maintenance mode) |
 | **Connection pooling** | `pgxpool` persistent per DB | `sql.DB` with `MaxOpenConns=1`, reopened per scrape |
 | **Parallel scrapes** | `errgroup` fan-out | serial |
-| **Scrape wall time** (HTTP, warm, 1 DB, PG 17.6)¹ | **7.8 ms** | 21.4 ms (**2.8× slower**) |
-| **Series per scrape**¹ | **2,593** | 1,967 (−24%) |
+| **Scrape wall time** (HTTP, warm, 1 DB, PG 17.6)¹ | **8.7 ms** | 20.2 ms (**2.3× slower**) |
+| **Series per scrape**¹ | **2,610** | 1,967 (−25%) |
 | **Scrape context propagation** | full | full |
 | **Password auth** | ✅ | ✅ |
 | **Cloud IAM (RDS/CloudSQL/Azure)** | ✅ via `BeforeConnect` | ❌ DSN-rewriting hack |
@@ -105,7 +105,7 @@ pg_stat_activity_backends{...}
 
 ## Collectors
 
-All default-on except `statements`. Disable one via `exporter.Opts.DisabledCollectors: []string{"locks"}`; whitelist an explicit set via `Opts.EnabledCollectors`.
+All default-on except `settings`, `statements`, and `subscription`. Disable one via `exporter.Opts.DisabledCollectors: []string{"locks"}`; whitelist an explicit set via `Opts.EnabledCollectors`.
 
 | Name | PostgreSQL view | Default |
 | --- | --- | --- |
@@ -127,8 +127,11 @@ All default-on except `statements`. Disable one via `exporter.Opts.DisabledColle
 | `progress_vacuum` | `pg_stat_progress_vacuum` | ✅ |
 | `replication` | `pg_stat_replication` (primary) | ✅ |
 | `replication_slots` | `pg_replication_slots` | ✅ |
+| `settings` | `pg_settings` (numeric-typed subset) | ⬜ off |
 | `slru` | `pg_stat_slru` (PG 13+) | ✅ |
+| `ssl` | `pg_stat_ssl` (aggregate) | ✅ |
 | `statements` | `pg_stat_statements` | ⬜ off |
+| `subscription` | `pg_stat_subscription` (+ stats PG 15+) | ⬜ off |
 | `user_indexes` | `pg_stat_user_indexes` | ✅ |
 | `user_tables` | `pg_stat_user_tables` | ✅ |
 | `wal` | `pg_stat_wal` (PG 14+) | ✅ |
