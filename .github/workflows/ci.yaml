@@ -14,16 +14,17 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go: ["1.23", "1.24"]
+        # pgx 5.9.x requires Go 1.25+ so we don't test older toolchains.
+        go: ["1.25"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: ${{ matrix.go }}
 
       - name: Module cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/go/pkg/mod
@@ -37,8 +38,8 @@ jobs:
       - run: go test ./... -race -coverprofile=coverage.out
 
       - name: Upload coverage
-        if: matrix.go == '1.24'
-        uses: actions/upload-artifact@v4
+        if: matrix.go == '1.25'
+        uses: actions/upload-artifact@v7
         with:
           name: coverage
           path: coverage.out
@@ -47,10 +48,10 @@ jobs:
     name: golangci-lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
-          go-version: "1.24"
-      - uses: golangci/golangci-lint-action@v6
+          go-version: "1.25"
+      - uses: golangci/golangci-lint-action@v9
         with:
-          version: v1.64
+          version: v2.6

@@ -224,7 +224,7 @@ func (c *PgStatUserTableCollector) Describe(ch chan<- *prometheus.Desc) {
 func (c *PgStatUserTableCollector) Scrape(ctx context.Context, ch chan<- prometheus.Metric) error {
 	start := time.Now()
 	defer func() {
-		log.Infof("user table scrape took %dms", time.Now().Sub(start).Milliseconds())
+		log.Infof("user table scrape took %dms", time.Since(start).Milliseconds())
 	}()
 	group, gctx := errgroup.WithContext(ctx)
 	for _, dbClient := range c.dbClients {

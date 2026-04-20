@@ -189,7 +189,7 @@ func (c *PgStatStatementsCollector) Describe(ch chan<- *prometheus.Desc) {
 func (c *PgStatStatementsCollector) Scrape(ctx context.Context, ch chan<- prometheus.Metric) error {
 	start := time.Now()
 	defer func() {
-		log.Infof("statement scrape took %dms", time.Now().Sub(start).Milliseconds())
+		log.Infof("statement scrape took %dms", time.Since(start).Milliseconds())
 	}()
 	group, gctx := errgroup.WithContext(ctx)
 	for _, dbClient := range c.dbClients {

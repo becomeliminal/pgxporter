@@ -1,31 +1,41 @@
+version: "2"
+
 run:
   timeout: 5m
 
 linters:
-  disable-all: true
+  default: none
   enable:
     - errcheck
-    - gofmt
-    - goimports
     - govet
     - ineffassign
     - misspell
     - staticcheck
     - unconvert
     - unused
+  settings:
+    staticcheck:
+      # v1.x limited staticcheck to SA-* (correctness) checks by default;
+      # v2.x also runs ST-* (style) + QF-* (quickfix). We intentionally
+      # stay at SA-only — style nits should be a separate, deliberate
+      # cleanup, not a side effect of taking a CVE fix.
+      #
+      # SA5008 flags duplicate struct tags, but go-flags (our CLI parser)
+      # uses multiple `choice:` tags per field to constrain enum values.
+      # Can't be avoided without rewriting flag definitions.
+      checks: ["SA*", "-SA5008"]
 
-linters-settings:
-  gofmt:
-    simplify: true
-  goimports:
-    local-prefixes: github.com/becomeliminal/pgxporter
-  staticcheck:
-    # SA5008 flags duplicate struct tags, but go-flags (our CLI parser)
-    # uses multiple `choice:` tags per field to constrain enum values.
-    # Can't be avoided without rewriting flag definitions.
-    checks: ["all", "-SA5008"]
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    gofmt:
+      simplify: true
+    goimports:
+      local-prefixes:
+        - github.com/becomeliminal/pgxporter
 
 issues:
-  exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0
