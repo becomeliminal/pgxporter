@@ -426,6 +426,57 @@ type PgStatIOUserIndex struct {
 	IndexBlksHit  pgtype.Int8 `db:"idx_blks_hit"`
 }
 
+// PgStatSSL is an aggregate row from pg_stat_ssl grouped by connection-level
+// TLS parameters. We deliberately don't emit per-pid rows — that's
+// per-backend and too noisy. One row per unique (ssl, version, cipher, bits)
+// combo with a count of connections matching that combo.
+type PgStatSSL struct {
+	Database    pgtype.Text `db:"database"`
+	SSL         pgtype.Bool `db:"ssl"`
+	Version     pgtype.Text `db:"version"`
+	Cipher      pgtype.Text `db:"cipher"`
+	Bits        pgtype.Int8 `db:"bits"`
+	Connections pgtype.Int8 `db:"connections"`
+}
+
+// PgStatSubscription is aggregated per-subscription state from
+// pg_stat_subscription. pid is not included because it flaps on worker
+// restarts — we aggregate to subname and use bool_or(pid IS NOT NULL) for
+// activity, plus max() over the LSN/time columns.
+type PgStatSubscription struct {
+	Database           pgtype.Text        `db:"database"`
+	SubName            pgtype.Text        `db:"subname"`
+	Active             pgtype.Bool        `db:"active"`
+	ReceivedLsnBytes   pgtype.Int8        `db:"received_lsn_bytes"`
+	LastMsgSendTime    pgtype.Timestamptz `db:"last_msg_send_time"`
+	LastMsgReceiptTime pgtype.Timestamptz `db:"last_msg_receipt_time"`
+	LatestEndLsnBytes  pgtype.Int8        `db:"latest_end_lsn_bytes"`
+	LatestEndTime      pgtype.Timestamptz `db:"latest_end_time"`
+}
+
+// PgStatSubscriptionStats holds per-subscription error counters and the
+// stats-reset timestamp from pg_stat_subscription_stats (PG 15+). On
+// pre-15 servers the select returns zero rows.
+type PgStatSubscriptionStats struct {
+	Database        pgtype.Text        `db:"database"`
+	SubName         pgtype.Text        `db:"subname"`
+	ApplyErrorCount pgtype.Int8        `db:"apply_error_count"`
+	SyncErrorCount  pgtype.Int8        `db:"sync_error_count"`
+	StatsReset      pgtype.Timestamptz `db:"stats_reset"`
+}
+
+// PgSetting is one row from pg_settings, filtered to settings whose
+// vartype is numeric-castable (bool/integer/real). String and enum
+// settings are skipped — they'd need info-metric handling which is
+// deferred.
+type PgSetting struct {
+	Database pgtype.Text   `db:"database"`
+	Name     pgtype.Text   `db:"name"`
+	Unit     pgtype.Text   `db:"unit"`
+	VarType  pgtype.Text   `db:"vartype"`
+	Value    pgtype.Float8 `db:"value"`
+}
+
 // PgStatStatement contains information on statements.
 type PgStatStatement struct {
 	Database            pgtype.Text   `db:"database"`
