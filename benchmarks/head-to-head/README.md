@@ -60,7 +60,7 @@ See [`results/pg-17.6-defaults.txt`](results/pg-17.6-defaults.txt) for the raw b
 | Client-side B/op | 1.12 MiB | 629 KiB | pgxporter +82% (larger response to buffer) |
 | Client-side allocs/op | 101 | 100 | essentially identical |
 
-**Reading the numbers.** pgxporter wins decisively on the two metrics that matter to a Prometheus operator: wall time (4.6×) and coverage (+31%). The client-side `B/op` / `allocs/op` columns are expected to be near-equal — they reflect the benchmark's own HTTP client, not the exporter internals. Exporter-internal allocation profiling is a separate question (tracked as LIM-1080); for pgxporter use `BenchmarkExporterCollect`, for postgres_exporter they'd need to be built with pprof support.
+**Reading the numbers.** pgxporter wins decisively on the two metrics that matter to a Prometheus operator: wall time (4.6×) and coverage (+31%). The client-side `B/op` / `allocs/op` columns are expected to be near-equal — they reflect the benchmark's own HTTP client, not the exporter internals. Exporter-internal allocation profiling is a separate question — for pgxporter use `BenchmarkExporterCollect`; for postgres_exporter you'd need to build it with pprof support.
 
 ### Why pgxporter is faster
 

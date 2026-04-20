@@ -30,8 +30,8 @@ func TestPgStatUserIndexesCollector_Emit_NullCountersSkipped(t *testing.T) {
 			IndexTupRead:  int8v(500),
 			IndexTupFetch: int8v(400),
 		},
-		// All counters NULL (partitioned parent shape that was the LIM-925 bug):
-		// 0 metrics from this row.
+		// All counters NULL — the partitioned-parent shape that would crash
+		// scans on plain int types. 0 metrics from this row.
 		{
 			Database:      text("postgres"),
 			SchemaName:    text("public"),

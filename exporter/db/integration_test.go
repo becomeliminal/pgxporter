@@ -563,7 +563,7 @@ func TestMatrix_SelectPgStatUserTables(t *testing.T) {
 
 // TestMatrix_SelectPgStatUserTables_WithFixtures exercises the scan path
 // with real rows, including the PG 17+ partitioned-table NULL shape that
-// originally triggered LIM-925 ("cannot assign 0 1 into *int").
+// would break a scan into plain int types ("cannot assign 0 1 into *int").
 func TestMatrix_SelectPgStatUserTables_WithFixtures(t *testing.T) {
 	for _, tc := range pgVersionsUnderTest {
 		t.Run(tc.name, func(t *testing.T) {
@@ -631,10 +631,12 @@ func TestMatrix_SelectPgStatUserTables_WithFixtures(t *testing.T) {
 					t.Fatalf("PG %s: partitioned_parent row missing from pg_stat_user_tables", tc.version)
 				}
 				// The partitioned parent itself has no heap → stats for some columns
-				// come through as NULL. That's the shape that triggered LIM-925.
-				// We don't assert any specific column is NULL (PG has flexibility);
-				// we just verify the scan completed without error, which is what
-				// matters for the regression.
+				// come through as NULL. That shape breaks scans into plain int
+				// fields ("cannot assign 0 1 into *int"), which is why the
+				// model uses pgtype-everywhere. We don't assert any specific
+				// column is NULL (PG has flexibility); we just verify the scan
+				// completed without error, which is what matters for the
+				// regression.
 			}
 		})
 	}

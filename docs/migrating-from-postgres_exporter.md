@@ -37,7 +37,7 @@ Every meaningful postgres_exporter flag, and its pgxporter equivalent:
 | `--log.format=json` | `slog.NewJSONHandler(os.Stdout, nil)` |
 | `--extend.query-path=queries.yaml` | `exp.ExtendFromYAMLFile("custom.yaml")` — different schema, see [CollectorSpec](#custom-collectors-queriesyaml-to-collectorspec) below |
 | `--disable-default-metrics` | `exporter.Opts.EnabledCollectors: []string{…}` — explicit whitelist |
-| `--disable-settings-metrics` | n/a today; `pg_settings` collector not shipped yet (tracked as [LIM-1045](https://linear.app/liminal-cash/issue/LIM-1045)) |
+| `--disable-settings-metrics` | n/a today; `pg_settings` collector not shipped yet |
 | `--auto-discover-databases` | No direct equivalent. Discover databases with your own code, build a `[]db.Opts`, pass to `exporter.Opts{DBOpts: …}`. We use Kubernetes service discovery for this at Liminal. |
 | `--exclude-databases=postgres,template0` | Handled during your discovery step before populating `DBOpts` |
 | `--constant-labels=env=prod,role=primary` | Pass to Prometheus via the registry or via your scrape config — not an exporter concern |

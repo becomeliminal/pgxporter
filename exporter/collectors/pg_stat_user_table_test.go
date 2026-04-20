@@ -11,7 +11,7 @@ import (
 
 func TestPgStatUserTableCollector_Describe(t *testing.T) {
 	c := NewPgStatUserTableCollector(nil)
-	// 19 baseline descriptors; the LIM-1012 rebase will raise to 23.
+	// 19 baseline descriptors; additions for new PG minor releases may raise this.
 	if got, min := len(drainDescs(c.Describe)), 19; got < min {
 		t.Errorf("Describe emitted %d, want >= %d", got, min)
 	}

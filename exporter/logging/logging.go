@@ -1,7 +1,7 @@
 // Package logging exposes a default [*slog.Logger] used across the
-// exporter. Migrated from logrus in LIM-1038 — logrus has been in
-// maintenance mode since 2022 and stdlib log/slog is the Go 1.21+
-// structured-logging default.
+// exporter. Previously built on logrus; migrated to stdlib log/slog
+// since logrus has been in maintenance mode since 2022 and slog is
+// the Go 1.21+ structured-logging default.
 //
 // Callers who want to inject a custom logger (different handler,
 // different level, JSON output, etc.) should construct their own
