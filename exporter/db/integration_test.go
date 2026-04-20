@@ -540,6 +540,28 @@ func TestAuthProvider_BeforeConnectIntegration(t *testing.T) {
 	}
 }
 
+// TestMatrix_SelectPgStatSSL verifies the aggregate SELECT executes and
+// returns at least one row — the exporter's own connection always shows
+// up, so the ssl=false (Unix socket or TCP-without-TLS) bucket is
+// typically non-empty.
+func TestMatrix_SelectPgStatSSL(t *testing.T) {
+	for _, tc := range pgVersionsUnderTest {
+		t.Run(tc.name, func(t *testing.T) {
+			client := connectPG(t, tc.version)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			rows, err := client.SelectPgStatSSL(ctx)
+			if err != nil {
+				t.Fatalf("SelectPgStatSSL: %v", err)
+			}
+			if len(rows) == 0 {
+				t.Fatalf("PG %s: expected at least one pg_stat_ssl bucket, got 0", tc.version)
+			}
+		})
+	}
+}
+
 // TestMatrix_SelectPgStatUserTables runs the version-gated SELECT against
 // a live server and asserts it completes without error. Regression guard
 // for column renames / schema drift when PG releases a new major.

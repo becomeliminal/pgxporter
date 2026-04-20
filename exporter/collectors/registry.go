@@ -27,6 +27,7 @@ const (
 	CollectorReplication         = "replication"
 	CollectorReplicationSlots    = "replication_slots"
 	CollectorSLRU                = "slru"
+	CollectorSSL                 = "ssl"
 	CollectorStatements          = "statements"
 	CollectorUserIndexes         = "user_indexes"
 	CollectorUserTables          = "user_tables"
@@ -68,6 +69,7 @@ var collectorRegistry = []collectorEntry{
 	{CollectorReplication, true, func(c []*db.Client) Collector { return NewPgStatReplicationCollector(c) }},
 	{CollectorReplicationSlots, true, func(c []*db.Client) Collector { return NewPgReplicationSlotsCollector(c) }},
 	{CollectorSLRU, true, func(c []*db.Client) Collector { return NewPgStatSLRUCollector(c) }},
+	{CollectorSSL, true, func(c []*db.Client) Collector { return NewPgStatSSLCollector(c) }},
 	// Statements is off by default — pg_stat_statements queries are
 	// expensive on busy clusters and the metric cardinality is high.
 	// Users opt in via EnabledCollectors: []string{CollectorStatements}.

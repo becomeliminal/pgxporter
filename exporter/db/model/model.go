@@ -311,6 +311,19 @@ type PgStatSLRU struct {
 	StatsReset  pgtype.Timestamptz `db:"stats_reset"`
 }
 
+// PgStatSSL is an aggregate count of backend SSL/TLS state. Labels
+// (ssl, version, cipher, bits) are low-cardinality in practice so this
+// is bounded even on busy clusters. postgres_exporter doesn't have a
+// dedicated collector for this — first-mover.
+type PgStatSSL struct {
+	Database pgtype.Text `db:"database"`
+	SSL      pgtype.Bool `db:"ssl"`
+	Version  pgtype.Text `db:"version"`
+	Cipher   pgtype.Text `db:"cipher"`
+	Bits     pgtype.Int8 `db:"bits"`
+	Count    pgtype.Int8 `db:"count"`
+}
+
 // PgLock is an aggregate lock-count row grouped by
 // (datname, mode, locktype, granted). Labels are low-cardinality:
 // mode ∈ {AccessShareLock, ...}, locktype ∈ {relation, tuple, transactionid, ...},
