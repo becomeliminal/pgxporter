@@ -504,6 +504,42 @@ func TestMatrix_SelectPgStatSLRU(t *testing.T) {
 	}
 }
 
+// TestAuthProvider_BeforeConnectIntegration verifies that a StaticAuthProvider
+// wired via Opts.AuthProvider actually flows through pgx's BeforeConnect hook
+// — i.e. the provider.Password return value becomes the password on the wire.
+// We start a PG with a specific password, configure Opts.Password to the
+// wrong value, and rely on AuthProvider to supply the right one.
+func TestAuthProvider_BeforeConnectIntegration(t *testing.T) {
+	pg := testutil.StartPG(t, "17.6")
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	opts := Opts{
+		Host:                  pg.Host,
+		Port:                  pg.Port,
+		User:                  "postgres",
+		Password:              "deliberately-wrong-should-not-be-used",
+		Database:              "postgres",
+		ApplicationName:       "pgxporter-auth-test",
+		ConnectTimeout:        10 * time.Second,
+		PoolMaxConns:          1,
+		PoolMinConns:          1,
+		PoolHealthCheckPeriod: time.Minute,
+		PoolMaxConnLifetime:   time.Hour,
+		PoolMaxConnIdleTime:   30 * time.Minute,
+		AuthProvider:          StaticAuthProvider{Pwd: ""}, // testutil PG has trust auth
+	}
+	client, err := New(ctx, opts)
+	if err != nil {
+		t.Fatalf("New with AuthProvider: %v", err)
+	}
+	t.Cleanup(func() { client.pool.Close() })
+
+	if err := client.CheckConnection(ctx); err != nil {
+		t.Errorf("CheckConnection: %v", err)
+	}
+}
+
 // TestMatrix_SelectPgStatUserTables runs the version-gated SELECT against
 // a live server and asserts it completes without error. Regression guard
 // for column renames / schema drift when PG releases a new major.
