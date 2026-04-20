@@ -169,7 +169,7 @@ func (c *SpecCollector) scrape(ctx context.Context, dbClient *db.Client, ch chan
 	fieldDescs := rows.FieldDescriptions()
 	colIdx := make(map[string]int, len(fieldDescs))
 	for i, fd := range fieldDescs {
-		colIdx[string(fd.Name)] = i
+		colIdx[fd.Name] = i
 	}
 	if _, ok := colIdx["database"]; !ok {
 		return fmt.Errorf("spec(%s): SELECT must return a 'database' column", c.spec.Subsystem)
