@@ -52,7 +52,7 @@ func TestPgSettingsCollector_Emit_SkipsInvalid(t *testing.T) {
 	// Name NULL or value NULL → skipped.
 	stats := []*model.PgSetting{
 		{Database: text("postgres"), VarType: text("integer"), Value: pgtype.Float8{Float64: 1, Valid: true}}, // name invalid
-		{Database: text("postgres"), Name: text("foo"), VarType: text("integer")},                              // value invalid
+		{Database: text("postgres"), Name: text("foo"), VarType: text("integer")},                             // value invalid
 	}
 	c.emit(stats)
 	ms := drainMetrics(c.collectInto)

@@ -46,7 +46,7 @@ func TestPgStatSSLCollector_Emit_SkipsInvalid(t *testing.T) {
 	c := NewPgStatSSLCollector(nil)
 	// ssl NULL → skip; connections NULL → skip.
 	stats := []*model.PgStatSSL{
-		{Database: text("postgres"), Connections: int8v(1)}, // ssl invalid
+		{Database: text("postgres"), Connections: int8v(1)},                     // ssl invalid
 		{Database: text("postgres"), SSL: pgtype.Bool{Bool: true, Valid: true}}, // connections invalid
 	}
 	c.emit(stats)
