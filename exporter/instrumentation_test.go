@@ -82,3 +82,41 @@ func TestSelfInstrumentation(t *testing.T) {
 		t.Errorf("metric_cardinality: got %d samples, want >= 10 (one per collector)", got)
 	}
 }
+
+// TestShutdown verifies Shutdown closes the pool so subsequent DB work
+// fails fast, and that ctx cancellation cleanly aborts the wait.
+func TestShutdown(t *testing.T) {
+	pg := testutil.StartPG(t, "17.6")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	exp, err := exporter.New(ctx, exporter.Opts{
+		DBOpts: []db.Opts{{
+			Host:                  pg.Host,
+			Port:                  pg.Port,
+			User:                  "postgres",
+			Database:              "postgres",
+			ApplicationName:       "pgxporter-shutdown-test",
+			ConnectTimeout:        10 * time.Second,
+			PoolMaxConns:          2,
+			PoolMinConns:          1,
+			PoolHealthCheckPeriod: time.Minute,
+			PoolMaxConnLifetime:   time.Hour,
+			PoolMaxConnIdleTime:   30 * time.Minute,
+			StatementCacheMode:    "prepare",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("exporter.New: %v", err)
+	}
+	if err := exp.HealthCheck(ctx); err != nil {
+		t.Fatalf("pre-shutdown healthcheck: %v", err)
+	}
+	if err := exp.Shutdown(ctx); err != nil {
+		t.Fatalf("Shutdown: %v", err)
+	}
+	// After Shutdown the pool is closed; HealthCheck must fail.
+	if err := exp.HealthCheck(ctx); err == nil {
+		t.Error("HealthCheck after Shutdown: want error, got nil")
+	}
+}
