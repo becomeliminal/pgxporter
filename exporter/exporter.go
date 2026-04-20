@@ -41,6 +41,16 @@ type Opts struct {
 	// default. Must be set before New() is called; changing it after has
 	// no effect on already-constructed collectors.
 	MetricPrefix collectors.MetricPrefix
+
+	// EnabledCollectors, if non-empty, restricts the running collector
+	// set to the listed names (see collectors.AvailableCollectors).
+	// Overrides the default-enabled set. Typical use: opt in to
+	// pg_stat_statements without pulling every other collector.
+	EnabledCollectors []string
+	// DisabledCollectors subtracts names from the resolved collector
+	// set. Applies after EnabledCollectors — a name in both wins for
+	// Disabled. Unknown names are logged as a warning, not fatal.
+	DisabledCollectors []string
 }
 
 // DefaultCollectionTimeout is the per-scrape deadline if Opts.CollectionTimeout
@@ -100,9 +110,16 @@ func New(ctx context.Context, opts Opts) (*Exporter, error) {
 		collectionTimeout = DefaultCollectionTimeout
 	}
 
+	resolvedCollectors, resolveErr := collectors.ResolveCollectors(dbClients, opts.EnabledCollectors, opts.DisabledCollectors)
+	if resolveErr != nil {
+		// Non-fatal: typos shouldn't brick the exporter. Log and use
+		// whatever subset resolved cleanly.
+		log.Warnf("collector resolution: %v", resolveErr)
+	}
+
 	return &Exporter{
 		dbClients:         dbClients,
-		collectors:        collectors.DefaultCollectors(dbClients),
+		collectors:        resolvedCollectors,
 		collectionTimeout: collectionTimeout,
 
 		// Internal metrics.

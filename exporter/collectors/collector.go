@@ -101,33 +101,11 @@ func SetMetricPrefix(p MetricPrefix) {
 	namespace = string(p)
 }
 
-// DefaultCollectors specifies the list of default collectors.
+// DefaultCollectors returns every default-enabled collector. Equivalent
+// to ResolveCollectors(dbClients, nil, nil) minus the error return.
+// Kept for backward compatibility — new code should prefer
+// ResolveCollectors with explicit enable/disable semantics.
 func DefaultCollectors(dbClients []*db.Client) []Collector {
-	return []Collector{
-		NewPgStatActivityCollector(dbClients),
-		NewPgStatArchiverCollector(dbClients),
-		NewPgStatBgwriterCollector(dbClients),
-		NewPgStatCheckpointerCollector(dbClients),
-		NewPgStatDatabaseCollector(dbClients),
-		NewPgLocksCollector(dbClients),
-		NewPgStatReplicationCollector(dbClients),
-		NewPgReplicationSlotsCollector(dbClients),
-		// Statement scrapes take way too long.
-		// NewPgStatStatementsCollector(dbClients),
-		NewPgStatUserTableCollector(dbClients),
-		NewPgStatUserIndexesCollector(dbClients),
-		NewPgStatIOUserTableCollector(dbClients),
-		NewPgStatIOUserIndexesCollector(dbClients),
-		NewPgStatWalCollector(dbClients),
-		NewPgStatWalReceiverCollector(dbClients),
-		NewPgDatabaseSizeCollector(dbClients),
-		NewPgStatIOCollector(dbClients),
-		NewPgStatSLRUCollector(dbClients),
-		NewPgStatProgressAnalyzeCollector(dbClients),
-		NewPgStatProgressBasebackupCollector(dbClients),
-		NewPgStatProgressClusterCollector(dbClients),
-		NewPgStatProgressCopyCollector(dbClients),
-		NewPgStatProgressCreateIndexCollector(dbClients),
-		NewPgStatProgressVacuumCollector(dbClients),
-	}
+	out, _ := ResolveCollectors(dbClients, nil, nil)
+	return out
 }
