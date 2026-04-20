@@ -16,7 +16,11 @@ import (
 
 var log = logging.NewLogger()
 
-const namespace = "pg_stat"
+// namespace is the Prometheus metric namespace prefix used for this
+// exporter's self-metrics (pg_stat_up, pg_stat_exporter_scrapes_total).
+// Kept as a var — not a const — so Opts.MetricPrefix can flip it at
+// New() time to stay consistent with the collector-level prefix.
+var namespace = "pg_stat"
 
 // Opts for the exporter.
 type Opts struct {
@@ -30,6 +34,13 @@ type Opts struct {
 	// collector via [collectors.Collector.Scrape] so a pathological query
 	// cannot hang the scrape indefinitely.
 	CollectionTimeout time.Duration
+	// MetricPrefix overrides the default "pg_stat" metric namespace for
+	// both exporter self-metrics and every registered collector. Set to
+	// [collectors.MetricPrefixPg] to match postgres_exporter's naming so
+	// community Grafana dashboards work unchanged. Empty value keeps the
+	// default. Must be set before New() is called; changing it after has
+	// no effect on already-constructed collectors.
+	MetricPrefix collectors.MetricPrefix
 }
 
 // DefaultCollectionTimeout is the per-scrape deadline if Opts.CollectionTimeout
@@ -64,6 +75,12 @@ func MustNew(ctx context.Context, opts Opts) *Exporter {
 func New(ctx context.Context, opts Opts) (*Exporter, error) {
 	if len(opts.DBOpts) < 1 {
 		return nil, fmt.Errorf("missing db opts")
+	}
+	// Apply the metric-prefix override BEFORE DefaultCollectors runs —
+	// collector descriptors bake in the prefix at construction time.
+	if opts.MetricPrefix != "" {
+		collectors.SetMetricPrefix(opts.MetricPrefix)
+		namespace = string(opts.MetricPrefix)
 	}
 	dbClients := make([]*db.Client, 0, len(opts.DBOpts))
 	for _, dbOpt := range opts.DBOpts {
