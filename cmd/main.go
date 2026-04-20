@@ -72,7 +72,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.Handle(*metricsPath, promhttp.HandlerFor(reg, promhttp.HandlerOpts{Timeout: *timeout}))
 	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
-		fmt.Fprintf(w, `<html><body><h1>pgxporter</h1><a href="%s">/metrics</a></body></html>`, *metricsPath)
+		_, _ = fmt.Fprintf(w, `<html><body><h1>pgxporter</h1><a href="%s">/metrics</a></body></html>`, *metricsPath)
 	})
 
 	srv := &http.Server{Addr: *listen, Handler: mux, ReadHeaderTimeout: 5 * time.Second}
