@@ -10,27 +10,12 @@ import (
 // DSN constructs a postgres-compatible connection URI.
 func DSN(opts Opts) string {
 	dsn := fmt.Sprintf("postgresql://%s", url.QueryEscape(opts.User))
-	opts = configureAuthParams(opts)
 	if opts.Password != "" {
 		dsn += fmt.Sprintf(":%s", url.QueryEscape(opts.Password))
 	}
 	dsn += fmt.Sprintf("@%s:%v/%s", opts.Host, opts.Port, url.QueryEscape(opts.Database))
 
-	// Application name here.
 	return addParametersToDSN(dsn, opts, false)
-}
-
-func configureAuthParams(opts Opts) Opts {
-	if opts.AuthMechanism == "" {
-		opts.AuthMechanism = opts.Password
-	}
-	switch opts.AuthMechanism {
-	case opts.Password:
-		// If password is not provided, grab from secrets dir.
-	default:
-	}
-	return opts
-
 }
 
 func addParametersToDSN(dsn string, opts Opts, postgresCompatible bool) string {

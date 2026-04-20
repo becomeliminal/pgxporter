@@ -214,6 +214,33 @@ func (e *Exporter) ExtendFromYAMLFile(path string) error {
 // Register the exporter.
 func (e *Exporter) Register() { prometheus.MustRegister(e) }
 
+// Shutdown releases every underlying pgxpool.Pool. Call once on SIGTERM
+// (after prometheus.Unregister if the exporter was registered) so the
+// process exits cleanly instead of leaking TCP connections into TIME_WAIT.
+//
+// Pool.Close blocks until every acquired connection is returned, so an
+// in-flight scrape will hold shutdown until it finishes — the per-scrape
+// deadline from Opts.CollectionTimeout bounds the wait. The mutex is
+// acquired to serialise with an in-flight Collect; ctx is honoured via
+// Lock/cancel to let callers cap the total wait.
+func (e *Exporter) Shutdown(ctx context.Context) error {
+	locked := make(chan struct{})
+	go func() {
+		e.mutex.Lock()
+		close(locked)
+	}()
+	select {
+	case <-locked:
+		defer e.mutex.Unlock()
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	for _, c := range e.dbClients {
+		c.Close()
+	}
+	return nil
+}
+
 // HealthCheck pings PostgreSQL.
 func (e *Exporter) HealthCheck(ctx context.Context) error {
 	group := errgroup.Group{}

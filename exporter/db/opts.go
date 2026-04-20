@@ -12,7 +12,6 @@ type Opts struct {
 	User            string `long:"postgres_user"     env:"POSTGRES_USER"     default:"postgres" description:"Postgres username"`
 	Password        string `long:"postgres_password" env:"POSTGRES_PASSWORD" default:"postgres" description:"Postgres password"`
 	Database        string `long:"postgres_database" env:"POSTGRES_DATABASE" default:"postgres" description:"Postgres database"`
-	AuthMechanism   string `long:"auth_mechanism" env:"AUTH_MECHANISM" description:"The mechanism to use when authenticating with the DB" choice:"password" choice:"client_certificates" default:"password"`
 	ApplicationName string `long:"application_name" env:"APP_NAME" required:"true"`
 	// Connection parameters.
 	ConnectTimeout       time.Duration `long:"connect_timeout" env:"CONNECT_TIMEOUT" default:"10s" description:"Postgres connection timeout"`

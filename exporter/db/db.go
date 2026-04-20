@@ -150,6 +150,13 @@ func (c *Client) CheckConnection(ctx context.Context) error {
 	return c.pool.Ping(ctx)
 }
 
+// Close returns the pool's connections to the OS and blocks until all
+// acquired connections are released. Safe to call once; subsequent calls
+// are no-ops on the underlying pgxpool.Pool.
+func (c *Client) Close() {
+	c.pool.Close()
+}
+
 // Select executes a statement that fetches rows in a transaction.
 func (c *Client) Select(ctx context.Context, dest interface{}, sql string, args ...interface{}) error {
 	rows, err := c.pool.Query(ctx, sql, args...)
