@@ -31,6 +31,7 @@ const (
 	progressVacuumSubSystem      = "progress_vacuum"
 	replicationSubSystem         = "replication"
 	replicationSlotsSubSystem    = "replication_slots"
+	slruSubSystem                = "slru"
 	statementsSubSystem          = "statements"
 	userTablesSubSystem          = "user_tables"
 	userIndexesSubSystem         = "user_indexes"
@@ -78,6 +79,7 @@ func DefaultCollectors(dbClients []*db.Client) []Collector {
 		NewPgStatWalReceiverCollector(dbClients),
 		NewPgDatabaseSizeCollector(dbClients),
 		NewPgStatIOCollector(dbClients),
+		NewPgStatSLRUCollector(dbClients),
 		NewPgStatProgressAnalyzeCollector(dbClients),
 		NewPgStatProgressBasebackupCollector(dbClients),
 		NewPgStatProgressClusterCollector(dbClients),

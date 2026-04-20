@@ -472,6 +472,38 @@ func TestMatrix_SelectPgStatIO(t *testing.T) {
 	}
 }
 
+// TestMatrix_SelectPgStatSLRU verifies the PG 13+ SELECT returns one row
+// per SLRU pool (CommitTs, MultiXactMember, Xact, etc.).
+func TestMatrix_SelectPgStatSLRU(t *testing.T) {
+	for _, tc := range pgVersionsUnderTest {
+		t.Run(tc.name, func(t *testing.T) {
+			client := connectPG(t, tc.version)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			rows, err := client.SelectPgStatSLRU(ctx)
+			if err != nil {
+				t.Fatalf("SelectPgStatSLRU: %v", err)
+			}
+			if client.AtLeast(13, 0) {
+				if len(rows) == 0 {
+					t.Fatalf("PG %s: expected at least one pg_stat_slru row, got 0", tc.version)
+				}
+				// Every row must have a name.
+				for _, r := range rows {
+					if !r.Name.Valid || r.Name.String == "" {
+						t.Errorf("PG %s: row missing SLRU name", tc.version)
+					}
+				}
+			} else {
+				if len(rows) != 0 {
+					t.Fatalf("PG %s: expected 0 rows on pre-13, got %d", tc.version, len(rows))
+				}
+			}
+		})
+	}
+}
+
 // TestMatrix_SelectPgStatUserTables runs the version-gated SELECT against
 // a live server and asserts it completes without error. Regression guard
 // for column renames / schema drift when PG releases a new major.
