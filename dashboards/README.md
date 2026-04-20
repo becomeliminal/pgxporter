@@ -57,7 +57,7 @@ Native dashboards planned as follow-up work for collectors not covered by commun
 
 - `pgxporter-io.json` — `pg_stat_io` per-backend-type I/O breakdown (PG 16+).
 - `pgxporter-slru.json` — SLRU cache hit rates (PG 13+).
-- `pgxporter-subscription.json` — once `pg_stat_subscription` collector ships (LIM-1043).
+- `pgxporter-subscription.json` — once a `pg_stat_subscription` collector ships.
 - `pgxporter-progress.json` — `pg_stat_progress_*` live operation progress.
 
 ## Verification note

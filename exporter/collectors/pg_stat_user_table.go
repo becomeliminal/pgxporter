@@ -245,8 +245,9 @@ func (c *PgStatUserTableCollector) scrape(ctx context.Context, dbClient *db.Clie
 
 // emit turns scanned pg_stat_user_tables rows into metrics, skipping NULL
 // counter or timestamp columns. Partitioned-table-parent rows from PG 17+
-// have NULL counters — those were the LIM-925 bug the pgtype refactor fixed
-// — so this Valid-gating is load-bearing.
+// return NULL counters — without the Valid gating below, scany would try
+// to assign NULL into a plain int field and the whole scrape would fail
+// (the pgtype-everywhere refactor exists specifically to make this safe).
 //
 // Separated from scrape for unit-test coverage.
 func (c *PgStatUserTableCollector) emit(stats []*model.PgStatUserTable, ch chan<- prometheus.Metric) {

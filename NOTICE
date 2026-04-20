@@ -15,9 +15,9 @@ limitations under the License.
 
 ----
 
-Relicensed from AGPL-3.0 to Apache-2.0 in 2026-04 (see LIM-1046) with
-consent of the sole meaningful copyright holder. The relicense brings
-pgxporter in line with the Prometheus exporter ecosystem
+Relicensed from AGPL-3.0 to Apache-2.0 in 2026-04 with consent of the
+sole meaningful copyright holder. The relicense brings pgxporter in
+line with the Prometheus exporter ecosystem
 (prometheus-community/postgres_exporter, prometheus/client_golang,
 prometheus/exporter-toolkit — all Apache-2.0) and unblocks corporate
 adoption blocked by AGPL §13 network-distribution obligations.

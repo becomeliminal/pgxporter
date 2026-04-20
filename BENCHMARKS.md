@@ -121,11 +121,10 @@ columns therefore measure strictly client-side HTTP work — equal for both,
 as expected. Wall time and response payload size are unaffected by process
 boundaries and remain fully comparable.
 
-Server-side allocation comparison is a separate question (tracked as
-LIM-1080). Use `BenchmarkExporterCollect` for pgxporter's in-process
-allocation profile; equivalent in-process profiling for postgres_exporter
-requires running it with `-memprofile` support which it doesn't expose
-natively.
+Server-side allocation comparison is a separate question — use
+`BenchmarkExporterCollect` for pgxporter's in-process allocation
+profile. Equivalent in-process profiling for postgres_exporter requires
+running it with `-memprofile` support which it doesn't expose natively.
 
 ### Reproduce
 
