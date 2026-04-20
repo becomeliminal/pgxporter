@@ -540,6 +540,42 @@ func TestAuthProvider_BeforeConnectIntegration(t *testing.T) {
 	}
 }
 
+// TestMatrix_SelectPgSettings verifies the numeric/bool projection works
+// across the PG matrix. ~300 built-in GUCs fit the filter; the row count
+// is a useful regression signal if PG renames a vartype.
+func TestMatrix_SelectPgSettings(t *testing.T) {
+	for _, tc := range pgVersionsUnderTest {
+		t.Run(tc.name, func(t *testing.T) {
+			client := connectPG(t, tc.version)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			rows, err := client.SelectPgSettings(ctx)
+			if err != nil {
+				t.Fatalf("SelectPgSettings: %v", err)
+			}
+			// Every PG version has at least 100 numeric/bool GUCs.
+			if len(rows) < 100 {
+				t.Errorf("PG %s: got %d numeric/bool settings, want >= 100", tc.version, len(rows))
+			}
+			// Sanity check one well-known integer GUC.
+			found := false
+			for _, r := range rows {
+				if r.Name.String == "max_connections" {
+					found = true
+					if !r.Value.Valid || r.Value.Float64 <= 0 {
+						t.Errorf("PG %s: max_connections has invalid value %+v", tc.version, r.Value)
+					}
+					break
+				}
+			}
+			if !found {
+				t.Errorf("PG %s: max_connections not in pg_settings result", tc.version)
+			}
+		})
+	}
+}
+
 // TestMatrix_SelectPgStatUserTables runs the version-gated SELECT against
 // a live server and asserts it completes without error. Regression guard
 // for column renames / schema drift when PG releases a new major.

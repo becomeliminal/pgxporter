@@ -26,6 +26,7 @@ const (
 	CollectorProgressVacuum      = "progress_vacuum"
 	CollectorReplication         = "replication"
 	CollectorReplicationSlots    = "replication_slots"
+	CollectorSettings            = "settings"
 	CollectorSLRU                = "slru"
 	CollectorStatements          = "statements"
 	CollectorUserIndexes         = "user_indexes"
@@ -67,6 +68,10 @@ var collectorRegistry = []collectorEntry{
 	{CollectorProgressVacuum, true, func(c []*db.Client) Collector { return NewPgStatProgressVacuumCollector(c) }},
 	{CollectorReplication, true, func(c []*db.Client) Collector { return NewPgStatReplicationCollector(c) }},
 	{CollectorReplicationSlots, true, func(c []*db.Client) Collector { return NewPgReplicationSlotsCollector(c) }},
+	// Settings is off by default — emits ~300 series per DB (every
+	// numeric/bool GUC). Fine on single-DB deployments, potentially
+	// chunky on multi-DB; opt in via EnabledCollectors.
+	{CollectorSettings, false, func(c []*db.Client) Collector { return NewPgSettingsCollector(c) }},
 	{CollectorSLRU, true, func(c []*db.Client) Collector { return NewPgStatSLRUCollector(c) }},
 	// Statements is off by default — pg_stat_statements queries are
 	// expensive on busy clusters and the metric cardinality is high.

@@ -311,6 +311,17 @@ type PgStatSLRU struct {
 	StatsReset  pgtype.Timestamptz `db:"stats_reset"`
 }
 
+// PgSetting is a single numeric/bool row from pg_settings. Text and
+// enum settings are filtered out at query time because they don't have
+// a natural float64 representation. Bool settings convert on→1, off→0.
+type PgSetting struct {
+	Database pgtype.Text   `db:"database"`
+	Name     pgtype.Text   `db:"name"`
+	Unit     pgtype.Text   `db:"unit"`
+	VarType  pgtype.Text   `db:"vartype"`
+	Value    pgtype.Float8 `db:"value"`
+}
+
 // PgLock is an aggregate lock-count row grouped by
 // (datname, mode, locktype, granted). Labels are low-cardinality:
 // mode ∈ {AccessShareLock, ...}, locktype ∈ {relation, tuple, transactionid, ...},
