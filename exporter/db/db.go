@@ -158,3 +158,10 @@ func (c *Client) Select(ctx context.Context, dest interface{}, sql string, args 
 	}
 	return pgxscan.ScanAll(dest, rows)
 }
+
+// Query exposes the underlying pgxpool.Query for callers that want raw
+// pgx.Rows rather than scany-scanned structs. Used by the declarative
+// SpecCollector, which reads columns by name at runtime.
+func (c *Client) Query(ctx context.Context, sql string, args ...interface{}) (pgx.Rows, error) {
+	return c.pool.Query(ctx, sql, args...)
+}
