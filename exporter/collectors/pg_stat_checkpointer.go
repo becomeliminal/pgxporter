@@ -20,49 +20,48 @@ import (
 type PgStatCheckpointerCollector struct {
 	dbClients []*db.Client
 
-	numTimed           *prometheus.Desc
-	numRequested       *prometheus.Desc
-	restartpointsTimed *prometheus.Desc
-	restartpointsReq   *prometheus.Desc
-	restartpointsDone  *prometheus.Desc
-	writeTime          *prometheus.Desc // seconds
-	syncTime           *prometheus.Desc // seconds
-	buffersWritten     *prometheus.Desc
-	statsReset         *prometheus.Desc
+	numTimed           *counterDelta
+	numRequested       *counterDelta
+	restartpointsTimed *counterDelta
+	restartpointsReq   *counterDelta
+	restartpointsDone  *counterDelta
+	writeTime          *counterDelta // seconds
+	syncTime           *counterDelta // seconds
+	buffersWritten     *counterDelta
+	statsReset         *prometheus.GaugeVec
 }
 
 // NewPgStatCheckpointerCollector instantiates a new PgStatCheckpointerCollector.
 func NewPgStatCheckpointerCollector(dbClients []*db.Client) *PgStatCheckpointerCollector {
 	labels := []string{"database"}
-	desc := func(name, help string) *prometheus.Desc {
-		return prometheus.NewDesc(prometheus.BuildFQName(namespace, checkpointerSubSystem, name), help, labels, nil)
-	}
+	counter := counterFactory(checkpointerSubSystem, labels)
+	gauge := gaugeFactory(checkpointerSubSystem, labels)
 	return &PgStatCheckpointerCollector{
 		dbClients: dbClients,
 
-		numTimed:           desc("num_timed_total", "Scheduled checkpoints performed"),
-		numRequested:       desc("num_requested_total", "Requested (non-scheduled) checkpoints performed"),
-		restartpointsTimed: desc("restartpoints_timed_total", "Scheduled restartpoints performed (standby)"),
-		restartpointsReq:   desc("restartpoints_req_total", "Requested restartpoints performed (standby)"),
-		restartpointsDone:  desc("restartpoints_done_total", "Restartpoints that were successfully completed (standby)"),
-		writeTime:          desc("write_time_seconds_total", "Total time spent writing files to disk during checkpoints, seconds"),
-		syncTime:           desc("sync_time_seconds_total", "Total time spent synchronizing files to disk during checkpoints, seconds"),
-		buffersWritten:     desc("buffers_written_total", "Buffers written during checkpoints"),
-		statsReset:         desc("stats_reset_timestamp_seconds", "Unix time at which these stats were last reset"),
+		numTimed:           counter("num_timed_total", "Scheduled checkpoints performed"),
+		numRequested:       counter("num_requested_total", "Requested (non-scheduled) checkpoints performed"),
+		restartpointsTimed: counter("restartpoints_timed_total", "Scheduled restartpoints performed (standby)"),
+		restartpointsReq:   counter("restartpoints_req_total", "Requested restartpoints performed (standby)"),
+		restartpointsDone:  counter("restartpoints_done_total", "Restartpoints that were successfully completed (standby)"),
+		writeTime:          counter("write_time_seconds_total", "Total time spent writing files to disk during checkpoints, seconds"),
+		syncTime:           counter("sync_time_seconds_total", "Total time spent synchronizing files to disk during checkpoints, seconds"),
+		buffersWritten:     counter("buffers_written_total", "Buffers written during checkpoints"),
+		statsReset:         gauge("stats_reset_timestamp_seconds", "Unix time at which these stats were last reset"),
 	}
 }
 
 // Describe implements the prometheus.Collector.
 func (c *PgStatCheckpointerCollector) Describe(ch chan<- *prometheus.Desc) {
-	ch <- c.numTimed
-	ch <- c.numRequested
-	ch <- c.restartpointsTimed
-	ch <- c.restartpointsReq
-	ch <- c.restartpointsDone
-	ch <- c.writeTime
-	ch <- c.syncTime
-	ch <- c.buffersWritten
-	ch <- c.statsReset
+	c.numTimed.Describe(ch)
+	c.numRequested.Describe(ch)
+	c.restartpointsTimed.Describe(ch)
+	c.restartpointsReq.Describe(ch)
+	c.restartpointsDone.Describe(ch)
+	c.writeTime.Describe(ch)
+	c.syncTime.Describe(ch)
+	c.buffersWritten.Describe(ch)
+	c.statsReset.Describe(ch)
 }
 
 // Scrape implements our Scraper interface.
@@ -70,49 +69,62 @@ func (c *PgStatCheckpointerCollector) Scrape(ctx context.Context, ch chan<- prom
 	group, gctx := errgroup.WithContext(ctx)
 	for _, dbClient := range c.dbClients {
 		dbClient := dbClient
-		group.Go(func() error { return c.scrape(gctx, dbClient, ch) })
+		group.Go(func() error { return c.scrape(gctx, dbClient) })
 	}
 	if err := group.Wait(); err != nil {
 		return fmt.Errorf("scraping: %w", err)
 	}
+	c.collectInto(ch)
 	return nil
 }
 
-func (c *PgStatCheckpointerCollector) scrape(ctx context.Context, dbClient *db.Client, ch chan<- prometheus.Metric) error {
+func (c *PgStatCheckpointerCollector) collectInto(ch chan<- prometheus.Metric) {
+	c.numTimed.Collect(ch)
+	c.numRequested.Collect(ch)
+	c.restartpointsTimed.Collect(ch)
+	c.restartpointsReq.Collect(ch)
+	c.restartpointsDone.Collect(ch)
+	c.writeTime.Collect(ch)
+	c.syncTime.Collect(ch)
+	c.buffersWritten.Collect(ch)
+	c.statsReset.Collect(ch)
+}
+
+func (c *PgStatCheckpointerCollector) scrape(ctx context.Context, dbClient *db.Client) error {
 	stats, err := dbClient.SelectPgStatCheckpointer(ctx)
 	if err != nil {
 		return fmt.Errorf("checkpointer stats: %w", err)
 	}
-	c.emit(stats, ch)
+	c.emit(stats)
 	return nil
 }
 
-func (c *PgStatCheckpointerCollector) emit(stats []*model.PgStatCheckpointer, ch chan<- prometheus.Metric) {
+func (c *PgStatCheckpointerCollector) emit(stats []*model.PgStatCheckpointer) {
 	for _, stat := range stats {
 		database := stat.Database.String
-		emitInt := func(desc *prometheus.Desc, valueType prometheus.ValueType, v pgtype.Int8) {
+		emitCounter := func(cd *counterDelta, v pgtype.Int8) {
 			if v.Valid {
-				ch <- prometheus.MustNewConstMetric(desc, valueType, float64(v.Int64), database)
+				cd.Observe(float64(v.Int64), database)
 			}
 		}
-		emitMillisAsSecs := func(desc *prometheus.Desc, v pgtype.Float8) {
+		emitMillisAsSecs := func(cd *counterDelta, v pgtype.Float8) {
 			if v.Valid {
-				ch <- prometheus.MustNewConstMetric(desc, prometheus.CounterValue, v.Float64/1000.0, database)
+				cd.Observe(v.Float64/1000.0, database)
 			}
 		}
-		emitTime := func(desc *prometheus.Desc, v pgtype.Timestamptz) {
+		emitTime := func(vec *prometheus.GaugeVec, v pgtype.Timestamptz) {
 			if v.Valid {
-				ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(v.Time.Unix()), database)
+				vec.WithLabelValues(database).Set(float64(v.Time.Unix()))
 			}
 		}
-		emitInt(c.numTimed, prometheus.CounterValue, stat.NumTimed)
-		emitInt(c.numRequested, prometheus.CounterValue, stat.NumRequested)
-		emitInt(c.restartpointsTimed, prometheus.CounterValue, stat.RestartpointsTimed)
-		emitInt(c.restartpointsReq, prometheus.CounterValue, stat.RestartpointsReq)
-		emitInt(c.restartpointsDone, prometheus.CounterValue, stat.RestartpointsDone)
+		emitCounter(c.numTimed, stat.NumTimed)
+		emitCounter(c.numRequested, stat.NumRequested)
+		emitCounter(c.restartpointsTimed, stat.RestartpointsTimed)
+		emitCounter(c.restartpointsReq, stat.RestartpointsReq)
+		emitCounter(c.restartpointsDone, stat.RestartpointsDone)
 		emitMillisAsSecs(c.writeTime, stat.WriteTime)
 		emitMillisAsSecs(c.syncTime, stat.SyncTime)
-		emitInt(c.buffersWritten, prometheus.CounterValue, stat.BuffersWritten)
+		emitCounter(c.buffersWritten, stat.BuffersWritten)
 		emitTime(c.statsReset, stat.StatsReset)
 	}
 }

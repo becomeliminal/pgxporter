@@ -21,34 +21,32 @@ import (
 type PgStatProgressVacuumCollector struct {
 	dbClients []*db.Client
 
-	heapBlksTotal    *prometheus.Desc
-	heapBlksScanned  *prometheus.Desc
-	heapBlksVacuumed *prometheus.Desc
-	indexVacuumCount *prometheus.Desc
+	heapBlksTotal    *prometheus.GaugeVec
+	heapBlksScanned  *prometheus.GaugeVec
+	heapBlksVacuumed *prometheus.GaugeVec
+	indexVacuumCount *prometheus.GaugeVec
 }
 
 // NewPgStatProgressVacuumCollector instantiates a new PgStatProgressVacuumCollector.
 func NewPgStatProgressVacuumCollector(dbClients []*db.Client) *PgStatProgressVacuumCollector {
 	labels := []string{"database", "datname", "relid", "phase"}
-	desc := func(name, help string) *prometheus.Desc {
-		return prometheus.NewDesc(prometheus.BuildFQName(namespace, progressVacuumSubSystem, name), help, labels, nil)
-	}
+	gauge := gaugeFactory(progressVacuumSubSystem, labels)
 	return &PgStatProgressVacuumCollector{
 		dbClients: dbClients,
 
-		heapBlksTotal:    desc("heap_blks_total", "Total heap blocks in this relation"),
-		heapBlksScanned:  desc("heap_blks_scanned", "Heap blocks scanned so far"),
-		heapBlksVacuumed: desc("heap_blks_vacuumed", "Heap blocks vacuumed so far"),
-		indexVacuumCount: desc("index_vacuum_count", "Number of index vacuum cycles completed"),
+		heapBlksTotal:    gauge("heap_blks_total", "Total heap blocks in this relation"),
+		heapBlksScanned:  gauge("heap_blks_scanned", "Heap blocks scanned so far"),
+		heapBlksVacuumed: gauge("heap_blks_vacuumed", "Heap blocks vacuumed so far"),
+		indexVacuumCount: gauge("index_vacuum_count", "Number of index vacuum cycles completed"),
 	}
 }
 
 // Describe implements the prometheus.Collector.
 func (c *PgStatProgressVacuumCollector) Describe(ch chan<- *prometheus.Desc) {
-	ch <- c.heapBlksTotal
-	ch <- c.heapBlksScanned
-	ch <- c.heapBlksVacuumed
-	ch <- c.indexVacuumCount
+	c.heapBlksTotal.Describe(ch)
+	c.heapBlksScanned.Describe(ch)
+	c.heapBlksVacuumed.Describe(ch)
+	c.indexVacuumCount.Describe(ch)
 }
 
 // Scrape implements our Scraper interface.
@@ -56,24 +54,32 @@ func (c *PgStatProgressVacuumCollector) Scrape(ctx context.Context, ch chan<- pr
 	group, gctx := errgroup.WithContext(ctx)
 	for _, dbClient := range c.dbClients {
 		dbClient := dbClient
-		group.Go(func() error { return c.scrape(gctx, dbClient, ch) })
+		group.Go(func() error { return c.scrape(gctx, dbClient) })
 	}
 	if err := group.Wait(); err != nil {
 		return fmt.Errorf("scraping: %w", err)
 	}
+	c.collectInto(ch)
 	return nil
 }
 
-func (c *PgStatProgressVacuumCollector) scrape(ctx context.Context, dbClient *db.Client, ch chan<- prometheus.Metric) error {
+func (c *PgStatProgressVacuumCollector) collectInto(ch chan<- prometheus.Metric) {
+	c.heapBlksTotal.Collect(ch)
+	c.heapBlksScanned.Collect(ch)
+	c.heapBlksVacuumed.Collect(ch)
+	c.indexVacuumCount.Collect(ch)
+}
+
+func (c *PgStatProgressVacuumCollector) scrape(ctx context.Context, dbClient *db.Client) error {
 	stats, err := dbClient.SelectPgStatProgressVacuum(ctx)
 	if err != nil {
 		return fmt.Errorf("progress_vacuum stats: %w", err)
 	}
-	c.emit(stats, ch)
+	c.emit(stats)
 	return nil
 }
 
-func (c *PgStatProgressVacuumCollector) emit(stats []*model.PgStatProgressVacuum, ch chan<- prometheus.Metric) {
+func (c *PgStatProgressVacuumCollector) emit(stats []*model.PgStatProgressVacuum) {
 	for _, stat := range stats {
 		labels := []string{
 			stat.Database.String,
@@ -81,9 +87,9 @@ func (c *PgStatProgressVacuumCollector) emit(stats []*model.PgStatProgressVacuum
 			stat.RelID.String,
 			stat.Phase.String,
 		}
-		emitInt := func(desc *prometheus.Desc, v pgtype.Int8) {
+		emitInt := func(vec *prometheus.GaugeVec, v pgtype.Int8) {
 			if v.Valid {
-				ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(v.Int64), labels...)
+				vec.WithLabelValues(labels...).Set(float64(v.Int64))
 			}
 		}
 		emitInt(c.heapBlksTotal, stat.HeapBlksTotal)

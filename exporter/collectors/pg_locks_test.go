@@ -37,7 +37,8 @@ func TestPgLocksCollector_Emit(t *testing.T) {
 		BlockedBackends: int8v(1),
 		BlockerEdges:    int8v(2),
 	}}
-	ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit(locks, summary, ch) })
+	c.emit(locks, summary)
+	ms := drainMetrics(c.collectInto)
 	// 2 lock-count rows + 2 summary gauges = 4
 	if got, want := len(ms), 4; got != want {
 		t.Errorf("emit produced %d metrics, want %d", got, want)
@@ -51,7 +52,8 @@ func TestPgLocksCollector_Emit_NoLocksNoBlocking(t *testing.T) {
 		BlockedBackends: int8v(0),
 		BlockerEdges:    int8v(0),
 	}}
-	ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit(nil, summary, ch) })
+	c.emit(nil, summary)
+	ms := drainMetrics(c.collectInto)
 	// 0 lock rows + 2 zero-valued summary gauges (still Valid) = 2
 	if got, want := len(ms), 2; got != want {
 		t.Errorf("emit produced %d metrics, want %d", got, want)
@@ -66,7 +68,8 @@ func TestPgLocksCollector_Emit_NullCountSkipped(t *testing.T) {
 		Granted: pgtype.Bool{Bool: true, Valid: true},
 		Count:   pgtype.Int8{},
 	}}
-	ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit(locks, nil, ch) })
+	c.emit(locks, nil)
+	ms := drainMetrics(c.collectInto)
 	if got := len(ms); got != 0 {
 		t.Errorf("emit produced %d metrics, want 0 (NULL count skipped)", got)
 	}

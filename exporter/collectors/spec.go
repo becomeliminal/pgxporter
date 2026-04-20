@@ -74,14 +74,17 @@ type MetricSpec struct {
 
 // SpecCollector is a generic collector driven by a CollectorSpec. Its
 // Scrape runs the spec's SQL on every dbClient, then emits one metric
-// per (row, MetricSpec). NULLs are skipped (consistent with hand-written
+// per (row, MetricSpec) via *Vec children so allocation amortises
+// across scrapes. NULLs are skipped (consistent with hand-written
 // collectors).
 type SpecCollector struct {
 	spec      CollectorSpec
 	dbClients []*db.Client
 
-	descs       []*prometheus.Desc // one per MetricSpec, same order as spec.Metrics
-	metricTypes []prometheus.ValueType
+	// Per-MetricSpec state, same order as spec.Metrics. Exactly one of
+	// counter or gauge is non-nil per entry.
+	counter []*counterDelta
+	gauge   []*prometheus.GaugeVec
 }
 
 // NewSpecCollector builds a SpecCollector. Panics if the spec is
@@ -105,33 +108,51 @@ func NewSpecCollector(spec CollectorSpec, dbClients []*db.Client) *SpecCollector
 	// can group cross-collector by db without special-casing.
 	labels := append([]string{"database"}, spec.Labels...)
 
-	descs := make([]*prometheus.Desc, len(spec.Metrics))
-	types := make([]prometheus.ValueType, len(spec.Metrics))
+	counters := make([]*counterDelta, len(spec.Metrics))
+	gauges := make([]*prometheus.GaugeVec, len(spec.Metrics))
 	for i, m := range spec.Metrics {
 		if m.Name == "" || m.Column == "" {
 			panic(fmt.Sprintf("MetricSpec[%d]: Name and Column are required", i))
 		}
-		descs[i] = prometheus.NewDesc(
-			prometheus.BuildFQName(ns, spec.Subsystem, m.Name),
-			m.Help, labels, nil,
-		)
-		types[i] = m.Type
-		if types[i] == 0 {
-			types[i] = prometheus.GaugeValue
+		vtype := m.Type
+		if vtype == 0 {
+			vtype = prometheus.GaugeValue
+		}
+		// TimestampAsUnix always emits as gauge (a reset timestamp is a
+		// wall-clock value, not a monotonic counter).
+		if m.TimestampAsUnix {
+			vtype = prometheus.GaugeValue
+		}
+		switch vtype {
+		case prometheus.CounterValue:
+			counters[i] = newCounterDelta(prometheus.NewCounterVec(prometheus.CounterOpts{
+				Namespace: ns, Subsystem: spec.Subsystem, Name: m.Name, Help: m.Help,
+			}, labels))
+		default:
+			gauges[i] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+				Namespace: ns, Subsystem: spec.Subsystem, Name: m.Name, Help: m.Help,
+			}, labels)
 		}
 	}
 	return &SpecCollector{
-		spec:        spec,
-		dbClients:   dbClients,
-		descs:       descs,
-		metricTypes: types,
+		spec:      spec,
+		dbClients: dbClients,
+		counter:   counters,
+		gauge:     gauges,
 	}
 }
 
 // Describe implements prometheus.Collector.
 func (c *SpecCollector) Describe(ch chan<- *prometheus.Desc) {
-	for _, d := range c.descs {
-		ch <- d
+	for _, cd := range c.counter {
+		if cd != nil {
+			cd.Describe(ch)
+		}
+	}
+	for _, gv := range c.gauge {
+		if gv != nil {
+			gv.Describe(ch)
+		}
 	}
 }
 
@@ -142,15 +163,29 @@ func (c *SpecCollector) Scrape(ctx context.Context, ch chan<- prometheus.Metric)
 	group, gctx := errgroup.WithContext(ctx)
 	for _, dbClient := range c.dbClients {
 		dbClient := dbClient
-		group.Go(func() error { return c.scrape(gctx, dbClient, ch) })
+		group.Go(func() error { return c.scrape(gctx, dbClient) })
 	}
 	if err := group.Wait(); err != nil {
 		return fmt.Errorf("spec(%s): %w", c.spec.Subsystem, err)
 	}
+	c.collectInto(ch)
 	return nil
 }
 
-func (c *SpecCollector) scrape(ctx context.Context, dbClient *db.Client, ch chan<- prometheus.Metric) error {
+func (c *SpecCollector) collectInto(ch chan<- prometheus.Metric) {
+	for _, cd := range c.counter {
+		if cd != nil {
+			cd.Collect(ch)
+		}
+	}
+	for _, gv := range c.gauge {
+		if gv != nil {
+			gv.Collect(ch)
+		}
+	}
+}
+
+func (c *SpecCollector) scrape(ctx context.Context, dbClient *db.Client) error {
 	if c.spec.MinPGVersion[0] > 0 && !dbClient.AtLeast(c.spec.MinPGVersion[0], c.spec.MinPGVersion[1]) {
 		return nil
 	}
@@ -205,11 +240,11 @@ func (c *SpecCollector) scrape(ctx context.Context, dbClient *db.Client, ch chan
 			if m.Scale != 0 {
 				val *= m.Scale
 			}
-			vtype := c.metricTypes[i]
-			if m.TimestampAsUnix {
-				vtype = prometheus.GaugeValue
+			if c.counter[i] != nil {
+				c.counter[i].Observe(val, labels...)
+			} else {
+				c.gauge[i].WithLabelValues(labels...).Set(val)
 			}
-			ch <- prometheus.MustNewConstMetric(c.descs[i], vtype, val, labels...)
 		}
 	}
 	return rows.Err()

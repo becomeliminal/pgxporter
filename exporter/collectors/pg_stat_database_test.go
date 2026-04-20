@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/becomeliminal/pgxporter/exporter/db/model"
 )
@@ -17,8 +16,6 @@ func TestPgStatDatabaseCollector_Describe(t *testing.T) {
 }
 
 func TestPgStatDatabaseCollector_Emit(t *testing.T) {
-	c := NewPgStatDatabaseCollector(nil)
-
 	// Fully-populated row includes PG 12+ and PG 14+ columns.
 	full := &model.PgStatDatabase{
 		Database:              text("postgres"),
@@ -56,7 +53,9 @@ func TestPgStatDatabaseCollector_Emit(t *testing.T) {
 	}
 
 	t.Run("full row emits most metrics", func(t *testing.T) {
-		ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit([]*model.PgStatDatabase{full}, ch) })
+		c := NewPgStatDatabaseCollector(nil)
+		c.emit([]*model.PgStatDatabase{full})
+		ms := drainMetrics(c.collectInto)
 		// Exact count depends on which fields are Valid. 26 possible; in this
 		// fixture ChecksumLastFailure and StatsReset are NULL → 24.
 		if got := len(ms); got < 20 {
@@ -65,16 +64,20 @@ func TestPgStatDatabaseCollector_Emit(t *testing.T) {
 	})
 
 	t.Run("NULL row emits nothing", func(t *testing.T) {
+		c := NewPgStatDatabaseCollector(nil)
 		empty := &model.PgStatDatabase{Database: text("postgres"), DatName: text("x")}
 		empty.XactCommit = pgtype.Int8{}
-		ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit([]*model.PgStatDatabase{empty}, ch) })
+		c.emit([]*model.PgStatDatabase{empty})
+		ms := drainMetrics(c.collectInto)
 		if got := len(ms); got != 0 {
 			t.Errorf("all-NULL row emitted %d metrics, want 0", got)
 		}
 	})
 
 	t.Run("partial row only emits valid fields", func(t *testing.T) {
-		ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit([]*model.PgStatDatabase{partial}, ch) })
+		c := NewPgStatDatabaseCollector(nil)
+		c.emit([]*model.PgStatDatabase{partial})
+		ms := drainMetrics(c.collectInto)
 		if got := len(ms); got != 0 {
 			t.Errorf("partial row emitted %d metrics, want 0 (no valid counters)", got)
 		}

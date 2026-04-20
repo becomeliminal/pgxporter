@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/becomeliminal/pgxporter/exporter/db/model"
 )
@@ -28,7 +27,8 @@ func TestPgStatArchiverCollector_Emit(t *testing.T) {
 		LastFailedTime:   pgtype.Timestamptz{Time: now, Valid: true},
 		StatsReset:       pgtype.Timestamptz{Time: now, Valid: true},
 	}}
-	ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit(stats, ch) })
+	c.emit(stats)
+	ms := drainMetrics(c.collectInto)
 	if got, want := len(ms), 5; got != want {
 		t.Errorf("emit produced %d metrics, want %d", got, want)
 	}
@@ -44,7 +44,8 @@ func TestPgStatArchiverCollector_Emit_NoArchivingConfigured(t *testing.T) {
 		ArchivedCount: int8v(0),
 		FailedCount:   int8v(0),
 	}}
-	ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit(stats, ch) })
+	c.emit(stats)
+	ms := drainMetrics(c.collectInto)
 	if got, want := len(ms), 2; got != want {
 		t.Errorf("emit produced %d metrics, want %d", got, want)
 	}

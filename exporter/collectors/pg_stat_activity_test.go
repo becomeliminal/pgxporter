@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/becomeliminal/pgxporter/exporter/db/model"
 )
@@ -72,7 +71,8 @@ func TestPgStatActivityCollector_Emit(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			c := NewPgStatActivityCollector(nil)
-			ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit(tc.rows, ch) })
+			c.emit(tc.rows)
+			ms := drainMetrics(c.collectInto)
 			if got := len(ms); got != tc.wantN {
 				t.Errorf("emit produced %d metrics, want %d", got, tc.wantN)
 			}

@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/becomeliminal/pgxporter/exporter/db/model"
 )
@@ -47,7 +46,8 @@ func TestPgStatUserTableCollector_Emit_PartitionedParent(t *testing.T) {
 			AutoAnalyzeCount: pgtype.Int8{},
 		},
 	}
-	ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit(rows, ch) })
+	c.emit(rows)
+	ms := drainMetrics(c.collectInto)
 	if got, want := len(ms), 0; got != want {
 		t.Errorf("partitioned-parent row emitted %d metrics, want %d (all NULL must be skipped)", got, want)
 	}
@@ -78,7 +78,8 @@ func TestPgStatUserTableCollector_Emit_PopulatedRow(t *testing.T) {
 			// Timestamps NULL — scrape emits them as invalid (skipped).
 		},
 	}
-	ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit(rows, ch) })
+	c.emit(rows)
+	ms := drainMetrics(c.collectInto)
 	// 15 integer counters should emit.
 	if got, min := len(ms), 15; got < min {
 		t.Errorf("populated row emitted %d metrics, want >= %d", got, min)

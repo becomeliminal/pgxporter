@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- **Collectors migrated from `prometheus.MustNewConstMetric` to stateful `*prometheus.CounterVec` / `*prometheus.GaugeVec` children.** Every collector (plus the declarative `SpecCollector` runner) now registers its metrics at construction time and mutates cached children on each scrape, rather than allocating fresh metric objects per emission. Per-scrape allocations drop from ~10,700 to ~1,600 (−85%); per-scrape bytes drop from ~530 KB to ~207 KB (−60%); wall time improves ~18%. Counter semantics are preserved via a `counterDelta` helper that tracks last-observed absolute values per label combo and calls `Add(delta)`, handling counter resets via `DeleteLabelValues` + fresh Add so Prometheus's `rate()` / `increase()` reset detection still works. No user-facing API change.
+- Internal ticket IDs and `linear.app` URLs scrubbed from repo files (comments, CHANGELOG, docs, `NOTICE`).
+
 ### Added
 
 - Integration matrix tests for `pg_stat_statements`, `pg_stat_user_indexes`, `pg_statio_user_tables`, `pg_statio_user_indexes` — closes a coverage gap so every collector's SELECT is now exercised against PG 13–18 on each CI run.

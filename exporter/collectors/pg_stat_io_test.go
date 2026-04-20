@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/becomeliminal/pgxporter/exporter/db/model"
 )
@@ -30,7 +29,8 @@ func TestPgStatIOCollector_Emit_FullyPopulatedBucket(t *testing.T) {
 		Evictions: int8v(100), Reuses: int8v(10),
 		Fsyncs: int8v(3), FsyncTime: floatv(6.0),
 	}}
-	ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit(stats, ch) })
+	c.emit(stats)
+	ms := drainMetrics(c.collectInto)
 	// 14 valid fields, stats_reset NULL.
 	if got, want := len(ms), 14; got != want {
 		t.Errorf("emit produced %d metrics, want %d", got, want)
@@ -47,7 +47,8 @@ func TestPgStatIOCollector_Emit_PartialBucket(t *testing.T) {
 		Hits:      int8v(2000),
 		Evictions: int8v(30),
 	}}
-	ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit(stats, ch) })
+	c.emit(stats)
+	ms := drainMetrics(c.collectInto)
 	// 4 valid fields.
 	if got, want := len(ms), 4; got != want {
 		t.Errorf("emit produced %d metrics, want %d", got, want)
@@ -56,7 +57,8 @@ func TestPgStatIOCollector_Emit_PartialBucket(t *testing.T) {
 
 func TestPgStatIOCollector_Emit_EmptyOnOlderPG(t *testing.T) {
 	c := NewPgStatIOCollector(nil)
-	ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit(nil, ch) })
+	c.emit(nil)
+	ms := drainMetrics(c.collectInto)
 	if got := len(ms); got != 0 {
 		t.Errorf("pre-16 (nil rows) emitted %d metrics, want 0", got)
 	}

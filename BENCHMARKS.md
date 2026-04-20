@@ -89,19 +89,42 @@ Raw results: [`benchmarks/head-to-head/results/pg-17.6-defaults.txt`](benchmarks
 
 | Metric | pgxporter | postgres_exporter v0.19.1 | Delta |
 | --- | --- | --- | --- |
-| Scrape wall time (sec/op) | **8.5 ms** | 38.9 ms | pgxporter **4.6× faster** |
-| Series emitted per scrape | **2,585** | 1,967 | pgxporter **+31% coverage** |
-| Response body (bytes/scrape) | 274 KiB | 229 KiB | pgxporter +19% (more metrics) |
-| Client-side B/op | 1.12 MiB | 629 KiB | pgxporter +82% (larger response to buffer) |
+| Scrape wall time (sec/op) | **7.8 ms** | 21.4 ms | pgxporter **2.8× faster** |
+| Series emitted per scrape | **2,593** | 1,967 | pgxporter **+31% coverage** |
+| Response body (bytes/scrape) | 275 KiB | 229 KiB | pgxporter +20% (more metrics) |
+| Client-side B/op | 1.12 MiB | 628 KiB | pgxporter +82% (larger response to buffer) |
 | Client-side allocs/op | 101 | 100 | essentially identical |
 
 **Interpretation.** pgxporter wins decisively on the two numbers a Prometheus
-operator feels directly: wall time (4.6× faster, driven by pgxpool connection
-reuse + prepared-statement cache + errgroup-parallel collectors) and coverage
+operator feels directly: wall time (driven by pgxpool connection reuse,
+prepared-statement cache, and errgroup-parallel collectors) and coverage
 (31% more series from a richer default collector set). The client-side
 allocation and memory numbers are near-identical — unsurprising, since both
 sides of this benchmark run the same HTTP client code against responses of
 comparable size.
+
+The wall-time ratio varies with ambient system load (the benchmark spawns two
+subprocesses on the test host). Different runs on the same machine have
+shown 2.5× to 4.5×; rerun locally for your own numbers before citing them
+externally.
+
+### In-process allocation profile
+
+`BenchmarkExporterCollect` measures pgxporter's pure `Collect()` cycle
+without HTTP or subprocess overhead — the most direct proxy for
+emission-path cost:
+
+```
+BenchmarkExporterCollect-24    50    1.26 ms/op    207 KB/op    1,584 allocs/op
+```
+
+pgxporter emits ~2,600 series per scrape for ~1,600 allocations — roughly
+0.6 allocations per emitted series, mostly in the pgx row-scanning and
+pgtype boxing paths. An earlier emission pattern (pre-`*Vec` refactor) sat
+at ~10,700 allocations / 530 KB per Collect — the migration to stateful
+`*prometheus.CounterVec` / `*prometheus.GaugeVec` children (with delta-
+tracking for cumulative PG counters, preserving counter type semantics)
+reduced per-scrape allocations by ~85% and per-scrape bytes by ~60%.
 
 ### Methodology note: why both subprocesses
 

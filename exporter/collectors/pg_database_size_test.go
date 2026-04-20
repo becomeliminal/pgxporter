@@ -3,8 +3,6 @@ package collectors
 import (
 	"testing"
 
-	"github.com/prometheus/client_golang/prometheus"
-
 	"github.com/becomeliminal/pgxporter/exporter/db/model"
 )
 
@@ -21,7 +19,8 @@ func TestPgDatabaseSizeCollector_Emit(t *testing.T) {
 		{Database: text("postgres"), DatName: text("postgres"), Bytes: int8v(8_000_000)},
 		{Database: text("postgres"), DatName: text("app"), Bytes: int8v(42_000_000)},
 	}
-	ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit(stats, ch) })
+	c.emit(stats)
+	ms := drainMetrics(c.collectInto)
 	if got, want := len(ms), 2; got != want {
 		t.Errorf("emit produced %d metrics, want %d", got, want)
 	}

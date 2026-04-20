@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
 
@@ -18,37 +17,35 @@ import (
 type PgStatArchiverCollector struct {
 	dbClients []*db.Client
 
-	archivedCount    *prometheus.Desc
-	lastArchivedTime *prometheus.Desc
-	failedCount      *prometheus.Desc
-	lastFailedTime   *prometheus.Desc
-	statsReset       *prometheus.Desc
+	archivedCount    *counterDelta
+	lastArchivedTime *prometheus.GaugeVec
+	failedCount      *counterDelta
+	lastFailedTime   *prometheus.GaugeVec
+	statsReset       *prometheus.GaugeVec
 }
 
 // NewPgStatArchiverCollector instantiates a new PgStatArchiverCollector.
 func NewPgStatArchiverCollector(dbClients []*db.Client) *PgStatArchiverCollector {
 	labels := []string{"database"}
-	desc := func(name, help string) *prometheus.Desc {
-		return prometheus.NewDesc(prometheus.BuildFQName(namespace, archiverSubSystem, name), help, labels, nil)
-	}
+	counter := counterFactory(archiverSubSystem, labels)
+	gauge := gaugeFactory(archiverSubSystem, labels)
 	return &PgStatArchiverCollector{
-		dbClients: dbClients,
-
-		archivedCount:    desc("archived_count_total", "WAL files successfully archived"),
-		lastArchivedTime: desc("last_archived_timestamp_seconds", "Unix time of the most recent successful archive"),
-		failedCount:      desc("failed_count_total", "Failed attempts to archive WAL files"),
-		lastFailedTime:   desc("last_failed_timestamp_seconds", "Unix time of the most recent archive failure"),
-		statsReset:       desc("stats_reset_timestamp_seconds", "Unix time at which these stats were last reset"),
+		dbClients:        dbClients,
+		archivedCount:    counter("archived_count_total", "WAL files successfully archived"),
+		lastArchivedTime: gauge("last_archived_timestamp_seconds", "Unix time of the most recent successful archive"),
+		failedCount:      counter("failed_count_total", "Failed attempts to archive WAL files"),
+		lastFailedTime:   gauge("last_failed_timestamp_seconds", "Unix time of the most recent archive failure"),
+		statsReset:       gauge("stats_reset_timestamp_seconds", "Unix time at which these stats were last reset"),
 	}
 }
 
 // Describe implements the prometheus.Collector.
 func (c *PgStatArchiverCollector) Describe(ch chan<- *prometheus.Desc) {
-	ch <- c.archivedCount
-	ch <- c.lastArchivedTime
-	ch <- c.failedCount
-	ch <- c.lastFailedTime
-	ch <- c.statsReset
+	c.archivedCount.Describe(ch)
+	c.lastArchivedTime.Describe(ch)
+	c.failedCount.Describe(ch)
+	c.lastFailedTime.Describe(ch)
+	c.statsReset.Describe(ch)
 }
 
 // Scrape implements our Scraper interface.
@@ -56,40 +53,55 @@ func (c *PgStatArchiverCollector) Scrape(ctx context.Context, ch chan<- promethe
 	group, gctx := errgroup.WithContext(ctx)
 	for _, dbClient := range c.dbClients {
 		dbClient := dbClient
-		group.Go(func() error { return c.scrape(gctx, dbClient, ch) })
+		group.Go(func() error { return c.scrape(gctx, dbClient) })
 	}
 	if err := group.Wait(); err != nil {
 		return fmt.Errorf("scraping: %w", err)
 	}
+	c.collectInto(ch)
 	return nil
 }
 
-func (c *PgStatArchiverCollector) scrape(ctx context.Context, dbClient *db.Client, ch chan<- prometheus.Metric) error {
+// collectInto forwards every tracked child metric to ch. Separated from
+// Scrape so unit tests can exercise emit → collect without a real DB.
+func (c *PgStatArchiverCollector) collectInto(ch chan<- prometheus.Metric) {
+	c.archivedCount.Collect(ch)
+	c.lastArchivedTime.Collect(ch)
+	c.failedCount.Collect(ch)
+	c.lastFailedTime.Collect(ch)
+	c.statsReset.Collect(ch)
+}
+
+func (c *PgStatArchiverCollector) scrape(ctx context.Context, dbClient *db.Client) error {
 	stats, err := dbClient.SelectPgStatArchiver(ctx)
 	if err != nil {
 		return fmt.Errorf("archiver stats: %w", err)
 	}
-	c.emit(stats, ch)
+	c.emit(stats)
 	return nil
 }
 
-func (c *PgStatArchiverCollector) emit(stats []*model.PgStatArchiver, ch chan<- prometheus.Metric) {
+// emit pushes each row's values into the collector's internal Vec
+// state. Counter-typed values go through counterDelta so we preserve
+// counter semantics despite PG exposing them as absolute cumulatives.
+// NULL fields are skipped — no metric is emitted for them.
+func (c *PgStatArchiverCollector) emit(stats []*model.PgStatArchiver) {
 	for _, stat := range stats {
 		database := stat.Database.String
-		emitInt := func(desc *prometheus.Desc, v pgtype.Int8) {
-			if v.Valid {
-				ch <- prometheus.MustNewConstMetric(desc, prometheus.CounterValue, float64(v.Int64), database)
-			}
+		if stat.ArchivedCount.Valid {
+			c.archivedCount.Observe(float64(stat.ArchivedCount.Int64), database)
 		}
-		emitTime := func(desc *prometheus.Desc, v pgtype.Timestamptz) {
-			if v.Valid {
-				ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(v.Time.Unix()), database)
-			}
+		if stat.LastArchivedTime.Valid {
+			c.lastArchivedTime.WithLabelValues(database).Set(float64(stat.LastArchivedTime.Time.Unix()))
 		}
-		emitInt(c.archivedCount, stat.ArchivedCount)
-		emitTime(c.lastArchivedTime, stat.LastArchivedTime)
-		emitInt(c.failedCount, stat.FailedCount)
-		emitTime(c.lastFailedTime, stat.LastFailedTime)
-		emitTime(c.statsReset, stat.StatsReset)
+		if stat.FailedCount.Valid {
+			c.failedCount.Observe(float64(stat.FailedCount.Int64), database)
+		}
+		if stat.LastFailedTime.Valid {
+			c.lastFailedTime.WithLabelValues(database).Set(float64(stat.LastFailedTime.Time.Unix()))
+		}
+		if stat.StatsReset.Valid {
+			c.statsReset.WithLabelValues(database).Set(float64(stat.StatsReset.Time.Unix()))
+		}
 	}
 }

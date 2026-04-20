@@ -15,42 +15,28 @@ import (
 type PgStatUserIndexesCollector struct {
 	dbClients []*db.Client
 
-	idxScan     *prometheus.Desc
-	idxTupRead  *prometheus.Desc
-	idxTupFetch *prometheus.Desc
+	idxScan     *counterDelta
+	idxTupRead  *counterDelta
+	idxTupFetch *counterDelta
 }
 
 // NewPgStatUserIndexesCollector instantiates and returns a new PgStatUserIndexesCollector.
 func NewPgStatUserIndexesCollector(dbClients []*db.Client) *PgStatUserIndexesCollector {
 	variableLabels := []string{"database", "schemaname", "relname", "indexrelname"}
+	counter := counterFactory(userIndexesSubSystem, variableLabels)
 	return &PgStatUserIndexesCollector{
-		dbClients: dbClients,
-		idxScan: prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, userIndexesSubSystem, "index_scan"),
-			"Number of index scans initiated on this index",
-			variableLabels,
-			nil,
-		),
-		idxTupRead: prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, userIndexesSubSystem, "index_tup_read"),
-			"Number of index entries returned by scans on this index",
-			variableLabels,
-			nil,
-		),
-		idxTupFetch: prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, userIndexesSubSystem, "index_tup_fetch"),
-			"Number of live table rows fetched by simple index scans using this index",
-			variableLabels,
-			nil,
-		),
+		dbClients:   dbClients,
+		idxScan:     counter("index_scan", "Number of index scans initiated on this index"),
+		idxTupRead:  counter("index_tup_read", "Number of index entries returned by scans on this index"),
+		idxTupFetch: counter("index_tup_fetch", "Number of live table rows fetched by simple index scans using this index"),
 	}
 }
 
 // Describe implements the prometheus.Collector.
 func (c *PgStatUserIndexesCollector) Describe(ch chan<- *prometheus.Desc) {
-	ch <- c.idxScan
-	ch <- c.idxTupRead
-	ch <- c.idxTupFetch
+	c.idxScan.Describe(ch)
+	c.idxTupRead.Describe(ch)
+	c.idxTupFetch.Describe(ch)
 }
 
 // Scrape implements our Scraper interface.
@@ -58,36 +44,43 @@ func (c *PgStatUserIndexesCollector) Scrape(ctx context.Context, ch chan<- prome
 	group, gctx := errgroup.WithContext(ctx)
 	for _, dbClient := range c.dbClients {
 		dbClient := dbClient
-		group.Go(func() error { return c.scrape(gctx, dbClient, ch) })
+		group.Go(func() error { return c.scrape(gctx, dbClient) })
 	}
 	if err := group.Wait(); err != nil {
 		return fmt.Errorf("scraping: %w", err)
 	}
+	c.collectInto(ch)
 	return nil
 }
 
-func (c *PgStatUserIndexesCollector) scrape(ctx context.Context, dbClient *db.Client, ch chan<- prometheus.Metric) error {
+func (c *PgStatUserIndexesCollector) collectInto(ch chan<- prometheus.Metric) {
+	c.idxScan.Collect(ch)
+	c.idxTupRead.Collect(ch)
+	c.idxTupFetch.Collect(ch)
+}
+
+func (c *PgStatUserIndexesCollector) scrape(ctx context.Context, dbClient *db.Client) error {
 	userIndexStats, err := dbClient.SelectPgStatUserIndexes(ctx)
 	if err != nil {
 		return fmt.Errorf("user indexes stats: %w", err)
 	}
-	c.emit(userIndexStats, ch)
+	c.emit(userIndexStats)
 	return nil
 }
 
 // emit turns scanned pg_stat_user_indexes rows into metrics, skipping NULL
 // counter columns. Separated from scrape for unit-test coverage.
-func (c *PgStatUserIndexesCollector) emit(stats []*model.PgStatUserIndex, ch chan<- prometheus.Metric) {
+func (c *PgStatUserIndexesCollector) emit(stats []*model.PgStatUserIndex) {
 	for _, stat := range stats {
 		labels := []string{stat.Database.String, stat.SchemaName.String, stat.RelName.String, stat.IndexRelName.String}
 		if stat.IndexScan.Valid {
-			ch <- prometheus.MustNewConstMetric(c.idxScan, prometheus.CounterValue, float64(stat.IndexScan.Int64), labels...)
+			c.idxScan.Observe(float64(stat.IndexScan.Int64), labels...)
 		}
 		if stat.IndexTupRead.Valid {
-			ch <- prometheus.MustNewConstMetric(c.idxTupRead, prometheus.CounterValue, float64(stat.IndexTupRead.Int64), labels...)
+			c.idxTupRead.Observe(float64(stat.IndexTupRead.Int64), labels...)
 		}
 		if stat.IndexTupFetch.Valid {
-			ch <- prometheus.MustNewConstMetric(c.idxTupFetch, prometheus.CounterValue, float64(stat.IndexTupFetch.Int64), labels...)
+			c.idxTupFetch.Observe(float64(stat.IndexTupFetch.Int64), labels...)
 		}
 	}
 }

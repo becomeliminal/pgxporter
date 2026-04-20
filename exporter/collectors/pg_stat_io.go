@@ -22,67 +22,66 @@ import (
 type PgStatIOCollector struct {
 	dbClients []*db.Client
 
-	reads         *prometheus.Desc
-	readTime      *prometheus.Desc
-	writes        *prometheus.Desc
-	writeTime     *prometheus.Desc
-	writebacks    *prometheus.Desc
-	writebackTime *prometheus.Desc
-	extends       *prometheus.Desc
-	extendTime    *prometheus.Desc
-	opBytes       *prometheus.Desc
-	hits          *prometheus.Desc
-	evictions     *prometheus.Desc
-	reuses        *prometheus.Desc
-	fsyncs        *prometheus.Desc
-	fsyncTime     *prometheus.Desc
-	statsReset    *prometheus.Desc
+	reads         *counterDelta
+	readTime      *counterDelta
+	writes        *counterDelta
+	writeTime     *counterDelta
+	writebacks    *counterDelta
+	writebackTime *counterDelta
+	extends       *counterDelta
+	extendTime    *counterDelta
+	opBytes       *prometheus.GaugeVec
+	hits          *counterDelta
+	evictions     *counterDelta
+	reuses        *counterDelta
+	fsyncs        *counterDelta
+	fsyncTime     *counterDelta
+	statsReset    *prometheus.GaugeVec
 }
 
 // NewPgStatIOCollector instantiates a new PgStatIOCollector.
 func NewPgStatIOCollector(dbClients []*db.Client) *PgStatIOCollector {
 	labels := []string{"database", "backend_type", "object", "context"}
-	desc := func(name, help string) *prometheus.Desc {
-		return prometheus.NewDesc(prometheus.BuildFQName(namespace, ioSubSystem, name), help, labels, nil)
-	}
+	counter := counterFactory(ioSubSystem, labels)
+	gauge := gaugeFactory(ioSubSystem, labels)
 	return &PgStatIOCollector{
 		dbClients: dbClients,
 
-		reads:         desc("reads_total", "Read operations issued"),
-		readTime:      desc("read_time_seconds_total", "Total time spent in read operations, seconds"),
-		writes:        desc("writes_total", "Write operations issued"),
-		writeTime:     desc("write_time_seconds_total", "Total time spent in write operations, seconds"),
-		writebacks:    desc("writebacks_total", "Writeback operations (dirty buffers flushed)"),
-		writebackTime: desc("writeback_time_seconds_total", "Total time spent in writeback operations, seconds"),
-		extends:       desc("extends_total", "Relation-extension operations"),
-		extendTime:    desc("extend_time_seconds_total", "Total time spent extending relations, seconds"),
-		opBytes:       desc("op_bytes", "Block size for I/O operations in this bucket, bytes (typically 8192)"),
-		hits:          desc("hits_total", "Shared-buffer hits"),
-		evictions:     desc("evictions_total", "Buffers evicted to make room"),
-		reuses:        desc("reuses_total", "Buffers reused from a previous strategy ring"),
-		fsyncs:        desc("fsyncs_total", "fsync operations issued"),
-		fsyncTime:     desc("fsync_time_seconds_total", "Total time spent in fsync operations, seconds"),
-		statsReset:    desc("stats_reset_timestamp_seconds", "Unix time at which these stats were last reset"),
+		reads:         counter("reads_total", "Read operations issued"),
+		readTime:      counter("read_time_seconds_total", "Total time spent in read operations, seconds"),
+		writes:        counter("writes_total", "Write operations issued"),
+		writeTime:     counter("write_time_seconds_total", "Total time spent in write operations, seconds"),
+		writebacks:    counter("writebacks_total", "Writeback operations (dirty buffers flushed)"),
+		writebackTime: counter("writeback_time_seconds_total", "Total time spent in writeback operations, seconds"),
+		extends:       counter("extends_total", "Relation-extension operations"),
+		extendTime:    counter("extend_time_seconds_total", "Total time spent extending relations, seconds"),
+		opBytes:       gauge("op_bytes", "Block size for I/O operations in this bucket, bytes (typically 8192)"),
+		hits:          counter("hits_total", "Shared-buffer hits"),
+		evictions:     counter("evictions_total", "Buffers evicted to make room"),
+		reuses:        counter("reuses_total", "Buffers reused from a previous strategy ring"),
+		fsyncs:        counter("fsyncs_total", "fsync operations issued"),
+		fsyncTime:     counter("fsync_time_seconds_total", "Total time spent in fsync operations, seconds"),
+		statsReset:    gauge("stats_reset_timestamp_seconds", "Unix time at which these stats were last reset"),
 	}
 }
 
 // Describe implements the prometheus.Collector.
 func (c *PgStatIOCollector) Describe(ch chan<- *prometheus.Desc) {
-	ch <- c.reads
-	ch <- c.readTime
-	ch <- c.writes
-	ch <- c.writeTime
-	ch <- c.writebacks
-	ch <- c.writebackTime
-	ch <- c.extends
-	ch <- c.extendTime
-	ch <- c.opBytes
-	ch <- c.hits
-	ch <- c.evictions
-	ch <- c.reuses
-	ch <- c.fsyncs
-	ch <- c.fsyncTime
-	ch <- c.statsReset
+	c.reads.Describe(ch)
+	c.readTime.Describe(ch)
+	c.writes.Describe(ch)
+	c.writeTime.Describe(ch)
+	c.writebacks.Describe(ch)
+	c.writebackTime.Describe(ch)
+	c.extends.Describe(ch)
+	c.extendTime.Describe(ch)
+	c.opBytes.Describe(ch)
+	c.hits.Describe(ch)
+	c.evictions.Describe(ch)
+	c.reuses.Describe(ch)
+	c.fsyncs.Describe(ch)
+	c.fsyncTime.Describe(ch)
+	c.statsReset.Describe(ch)
 }
 
 // Scrape implements our Scraper interface.
@@ -90,24 +89,43 @@ func (c *PgStatIOCollector) Scrape(ctx context.Context, ch chan<- prometheus.Met
 	group, gctx := errgroup.WithContext(ctx)
 	for _, dbClient := range c.dbClients {
 		dbClient := dbClient
-		group.Go(func() error { return c.scrape(gctx, dbClient, ch) })
+		group.Go(func() error { return c.scrape(gctx, dbClient) })
 	}
 	if err := group.Wait(); err != nil {
 		return fmt.Errorf("scraping: %w", err)
 	}
+	c.collectInto(ch)
 	return nil
 }
 
-func (c *PgStatIOCollector) scrape(ctx context.Context, dbClient *db.Client, ch chan<- prometheus.Metric) error {
+func (c *PgStatIOCollector) collectInto(ch chan<- prometheus.Metric) {
+	c.reads.Collect(ch)
+	c.readTime.Collect(ch)
+	c.writes.Collect(ch)
+	c.writeTime.Collect(ch)
+	c.writebacks.Collect(ch)
+	c.writebackTime.Collect(ch)
+	c.extends.Collect(ch)
+	c.extendTime.Collect(ch)
+	c.opBytes.Collect(ch)
+	c.hits.Collect(ch)
+	c.evictions.Collect(ch)
+	c.reuses.Collect(ch)
+	c.fsyncs.Collect(ch)
+	c.fsyncTime.Collect(ch)
+	c.statsReset.Collect(ch)
+}
+
+func (c *PgStatIOCollector) scrape(ctx context.Context, dbClient *db.Client) error {
 	stats, err := dbClient.SelectPgStatIO(ctx)
 	if err != nil {
 		return fmt.Errorf("io stats: %w", err)
 	}
-	c.emit(stats, ch)
+	c.emit(stats)
 	return nil
 }
 
-func (c *PgStatIOCollector) emit(stats []*model.PgStatIO, ch chan<- prometheus.Metric) {
+func (c *PgStatIOCollector) emit(stats []*model.PgStatIO) {
 	for _, stat := range stats {
 		labels := []string{
 			stat.Database.String,
@@ -115,24 +133,24 @@ func (c *PgStatIOCollector) emit(stats []*model.PgStatIO, ch chan<- prometheus.M
 			stat.Object.String,
 			stat.Context.String,
 		}
-		emitCounter := func(desc *prometheus.Desc, v pgtype.Int8) {
+		emitCounter := func(cd *counterDelta, v pgtype.Int8) {
 			if v.Valid {
-				ch <- prometheus.MustNewConstMetric(desc, prometheus.CounterValue, float64(v.Int64), labels...)
+				cd.Observe(float64(v.Int64), labels...)
 			}
 		}
-		emitGauge := func(desc *prometheus.Desc, v pgtype.Int8) {
+		emitGauge := func(vec *prometheus.GaugeVec, v pgtype.Int8) {
 			if v.Valid {
-				ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(v.Int64), labels...)
+				vec.WithLabelValues(labels...).Set(float64(v.Int64))
 			}
 		}
-		emitMillisAsSecs := func(desc *prometheus.Desc, v pgtype.Float8) {
+		emitMillisAsSecs := func(cd *counterDelta, v pgtype.Float8) {
 			if v.Valid {
-				ch <- prometheus.MustNewConstMetric(desc, prometheus.CounterValue, v.Float64/1000.0, labels...)
+				cd.Observe(v.Float64/1000.0, labels...)
 			}
 		}
-		emitTime := func(desc *prometheus.Desc, v pgtype.Timestamptz) {
+		emitTime := func(vec *prometheus.GaugeVec, v pgtype.Timestamptz) {
 			if v.Valid {
-				ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(v.Time.Unix()), labels...)
+				vec.WithLabelValues(labels...).Set(float64(v.Time.Unix()))
 			}
 		}
 		emitCounter(c.reads, stat.Reads)

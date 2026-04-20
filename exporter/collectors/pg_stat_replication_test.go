@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/becomeliminal/pgxporter/exporter/db/model"
 )
@@ -32,7 +31,8 @@ func TestPgStatReplicationCollector_Emit(t *testing.T) {
 		FlushLagSeconds:  floatv(0.002),
 		ReplayLagSeconds: floatv(0.003),
 	}}
-	ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit(stats, ch) })
+	c.emit(stats)
+	ms := drainMetrics(c.collectInto)
 	if got, want := len(ms), 7; got != want {
 		t.Errorf("emit produced %d metrics, want %d", got, want)
 	}
@@ -59,7 +59,8 @@ func TestPgStatReplicationCollector_Emit_StandbyShape(t *testing.T) {
 		FlushLagSeconds:  pgtype.Float8{},
 		ReplayLagSeconds: pgtype.Float8{},
 	}}
-	ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit(stats, ch) })
+	c.emit(stats)
+	ms := drainMetrics(c.collectInto)
 	if got := len(ms); got != 0 {
 		t.Errorf("emit produced %d metrics, want 0 (all NULL)", got)
 	}

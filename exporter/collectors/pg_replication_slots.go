@@ -20,43 +20,41 @@ import (
 type PgReplicationSlotsCollector struct {
 	dbClients []*db.Client
 
-	active            *prometheus.Desc
-	temporary         *prometheus.Desc
-	restartLsn        *prometheus.Desc
-	confirmedFlushLsn *prometheus.Desc
-	retainedWalBytes  *prometheus.Desc
-	safeWalSizeBytes  *prometheus.Desc
-	conflicting       *prometheus.Desc
+	active            *prometheus.GaugeVec
+	temporary         *prometheus.GaugeVec
+	restartLsn        *prometheus.GaugeVec
+	confirmedFlushLsn *prometheus.GaugeVec
+	retainedWalBytes  *prometheus.GaugeVec
+	safeWalSizeBytes  *prometheus.GaugeVec
+	conflicting       *prometheus.GaugeVec
 }
 
 // NewPgReplicationSlotsCollector instantiates a new PgReplicationSlotsCollector.
 func NewPgReplicationSlotsCollector(dbClients []*db.Client) *PgReplicationSlotsCollector {
 	labels := []string{"database", "slot_name", "slot_type", "plugin", "datname", "wal_status"}
-	desc := func(name, help string) *prometheus.Desc {
-		return prometheus.NewDesc(prometheus.BuildFQName(namespaceRawPg, replicationSlotsSubSystem, name), help, labels, nil)
-	}
+	gauge := gaugeFactoryRawPg(replicationSlotsSubSystem, labels)
 	return &PgReplicationSlotsCollector{
 		dbClients: dbClients,
 
-		active:            desc("active", "1 if the slot is currently active, 0 otherwise"),
-		temporary:         desc("temporary", "1 if the slot is temporary (dies with session), 0 otherwise"),
-		restartLsn:        desc("restart_lsn_bytes", "Oldest WAL location the slot requires, as a byte offset"),
-		confirmedFlushLsn: desc("confirmed_flush_lsn_bytes", "Logical-slot: last LSN confirmed flushed by the consumer"),
-		retainedWalBytes:  desc("retained_wal_bytes", "WAL bytes retained by this slot (pg_current_wal_lsn - restart_lsn); NULL on standby"),
-		safeWalSizeBytes:  desc("safe_wal_size_bytes", "WAL bytes remaining before the slot becomes 'lost' (PG 13+)"),
-		conflicting:       desc("conflicting", "1 if the slot is conflicting with recovery, 0 otherwise (PG 16+)"),
+		active:            gauge("active", "1 if the slot is currently active, 0 otherwise"),
+		temporary:         gauge("temporary", "1 if the slot is temporary (dies with session), 0 otherwise"),
+		restartLsn:        gauge("restart_lsn_bytes", "Oldest WAL location the slot requires, as a byte offset"),
+		confirmedFlushLsn: gauge("confirmed_flush_lsn_bytes", "Logical-slot: last LSN confirmed flushed by the consumer"),
+		retainedWalBytes:  gauge("retained_wal_bytes", "WAL bytes retained by this slot (pg_current_wal_lsn - restart_lsn); NULL on standby"),
+		safeWalSizeBytes:  gauge("safe_wal_size_bytes", "WAL bytes remaining before the slot becomes 'lost' (PG 13+)"),
+		conflicting:       gauge("conflicting", "1 if the slot is conflicting with recovery, 0 otherwise (PG 16+)"),
 	}
 }
 
 // Describe implements the prometheus.Collector.
 func (c *PgReplicationSlotsCollector) Describe(ch chan<- *prometheus.Desc) {
-	ch <- c.active
-	ch <- c.temporary
-	ch <- c.restartLsn
-	ch <- c.confirmedFlushLsn
-	ch <- c.retainedWalBytes
-	ch <- c.safeWalSizeBytes
-	ch <- c.conflicting
+	c.active.Describe(ch)
+	c.temporary.Describe(ch)
+	c.restartLsn.Describe(ch)
+	c.confirmedFlushLsn.Describe(ch)
+	c.retainedWalBytes.Describe(ch)
+	c.safeWalSizeBytes.Describe(ch)
+	c.conflicting.Describe(ch)
 }
 
 // Scrape implements our Scraper interface.
@@ -64,24 +62,35 @@ func (c *PgReplicationSlotsCollector) Scrape(ctx context.Context, ch chan<- prom
 	group, gctx := errgroup.WithContext(ctx)
 	for _, dbClient := range c.dbClients {
 		dbClient := dbClient
-		group.Go(func() error { return c.scrape(gctx, dbClient, ch) })
+		group.Go(func() error { return c.scrape(gctx, dbClient) })
 	}
 	if err := group.Wait(); err != nil {
 		return fmt.Errorf("scraping: %w", err)
 	}
+	c.collectInto(ch)
 	return nil
 }
 
-func (c *PgReplicationSlotsCollector) scrape(ctx context.Context, dbClient *db.Client, ch chan<- prometheus.Metric) error {
+func (c *PgReplicationSlotsCollector) collectInto(ch chan<- prometheus.Metric) {
+	c.active.Collect(ch)
+	c.temporary.Collect(ch)
+	c.restartLsn.Collect(ch)
+	c.confirmedFlushLsn.Collect(ch)
+	c.retainedWalBytes.Collect(ch)
+	c.safeWalSizeBytes.Collect(ch)
+	c.conflicting.Collect(ch)
+}
+
+func (c *PgReplicationSlotsCollector) scrape(ctx context.Context, dbClient *db.Client) error {
 	stats, err := dbClient.SelectPgReplicationSlots(ctx)
 	if err != nil {
 		return fmt.Errorf("replication_slots stats: %w", err)
 	}
-	c.emit(stats, ch)
+	c.emit(stats)
 	return nil
 }
 
-func (c *PgReplicationSlotsCollector) emit(stats []*model.PgReplicationSlot, ch chan<- prometheus.Metric) {
+func (c *PgReplicationSlotsCollector) emit(stats []*model.PgReplicationSlot) {
 	for _, stat := range stats {
 		labels := []string{
 			stat.Database.String,
@@ -91,23 +100,23 @@ func (c *PgReplicationSlotsCollector) emit(stats []*model.PgReplicationSlot, ch 
 			stat.DatName.String,
 			stat.WalStatus.String,
 		}
-		emitBool := func(desc *prometheus.Desc, v pgtype.Bool) {
+		emitBool := func(vec *prometheus.GaugeVec, v pgtype.Bool) {
 			if v.Valid {
 				val := 0.0
 				if v.Bool {
 					val = 1.0
 				}
-				ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, val, labels...)
+				vec.WithLabelValues(labels...).Set(val)
 			}
 		}
-		emitFloat := func(desc *prometheus.Desc, v pgtype.Float8) {
+		emitFloat := func(vec *prometheus.GaugeVec, v pgtype.Float8) {
 			if v.Valid {
-				ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, v.Float64, labels...)
+				vec.WithLabelValues(labels...).Set(v.Float64)
 			}
 		}
-		emitInt := func(desc *prometheus.Desc, v pgtype.Int8) {
+		emitInt := func(vec *prometheus.GaugeVec, v pgtype.Int8) {
 			if v.Valid {
-				ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(v.Int64), labels...)
+				vec.WithLabelValues(labels...).Set(float64(v.Int64))
 			}
 		}
 		emitBool(c.active, stat.Active)
