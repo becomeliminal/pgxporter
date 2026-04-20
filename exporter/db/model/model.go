@@ -295,6 +295,22 @@ type PgStatIO struct {
 	StatsReset    pgtype.Timestamptz `db:"stats_reset"`
 }
 
+// PgStatSLRU is one row per SLRU buffer pool (PG 13+). Names are fixed
+// strings — CommitTs, MultiXactMember, MultiXactOffset, Notify, Serial,
+// Subtrans, Xact, etc. Postgres_exporter doesn't ship this collector.
+type PgStatSLRU struct {
+	Database    pgtype.Text        `db:"database"`
+	Name        pgtype.Text        `db:"name"`
+	BlksZeroed  pgtype.Int8        `db:"blks_zeroed"`
+	BlksHit     pgtype.Int8        `db:"blks_hit"`
+	BlksRead    pgtype.Int8        `db:"blks_read"`
+	BlksWritten pgtype.Int8        `db:"blks_written"`
+	BlksExists  pgtype.Int8        `db:"blks_exists"`
+	Flushes     pgtype.Int8        `db:"flushes"`
+	Truncates   pgtype.Int8        `db:"truncates"`
+	StatsReset  pgtype.Timestamptz `db:"stats_reset"`
+}
+
 // PgLock is an aggregate lock-count row grouped by
 // (datname, mode, locktype, granted). Labels are low-cardinality:
 // mode ∈ {AccessShareLock, ...}, locktype ∈ {relation, tuple, transactionid, ...},
