@@ -32,6 +32,29 @@ PG. That's the ceiling on pgxporter overhead; real deployments add the
 network round-trip, PG's view-materialisation cost for busy instances, and
 whatever per-collector load the user has configured.
 
+## Scaling: multi-DB fan-out (2026-04-20, PG 17.6)
+
+`BenchmarkExporterCollectMultiDB` spins up N `pgxpool.Pool`s pointed at the same underlying PG and scrapes them all in one Collect() cycle:
+
+```
+BenchmarkExporterCollectMultiDB/DBs_1     20     2.04 ms/op
+BenchmarkExporterCollectMultiDB/DBs_4     20     4.21 ms/op    (4× DBs →  2.1× time)
+BenchmarkExporterCollectMultiDB/DBs_16    20    28.58 ms/op   (16× DBs → 14×  time)
+```
+
+Sub-linear through 4 DBs (errgroup fan-out hiding DB-side latency). Approaching linear at 16 because all scrapes bottleneck on the single underlying PG — that's real-world behaviour, not a benchmark artefact. A serial exporter would sit at exactly N × single-DB cost.
+
+## Scaling: prepared-statement cache warm vs cold (2026-04-20, PG 17.6)
+
+`BenchmarkExporterCollectColdVsWarm` compares `StatementCacheMode="prepare"` (our default, parse once and reuse) against `StatementCacheMode="describe"` (no caching, simulates postgres_exporter's `sql.DB`-per-scrape pattern):
+
+```
+warm_prepare_cache    50    1.81 ms/op
+no_prepare_cache      50    3.20 ms/op    (1.77× slower without cache)
+```
+
+The per-scrape parse cost matters: at 30 s scrape intervals, the delta per day is ~4 extra seconds of work across the exporter's lifetime. Negligible for a single instance, meaningful when deploying exporters at fleet scale.
+
 ## Architectural advantages this demonstrates
 
 1. **Connection reuse across scrapes.** The exporter holds a

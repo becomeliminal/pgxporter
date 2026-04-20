@@ -6,7 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-First public release of pgxporter. Targets parity with the 80/20 of `prometheus-community/postgres_exporter` on top of a pgx v5 / scany v2 foundation, with cloud IAM auth and a declarative collector extension path as the two headline differentiators.
+### Added
+
+- Integration matrix tests for `pg_stat_statements`, `pg_stat_user_indexes`, `pg_statio_user_tables`, `pg_statio_user_indexes` — closes LIM-1054's coverage gaps. Every collector's SELECT is now exercised against PG 13–18 on each CI run (LIM-1054).
+- `BenchmarkExporterCollectMultiDB` — 1/4/16-DB fan-out scaling benchmark. `BenchmarkExporterCollectColdVsWarm` — prepared-statement-cache on vs off. Numbers in BENCHMARKS.md (LIM-1052).
+
+## [1.0.0-rc1] — 2026-04-20
+
+First public release candidate for pgxporter. Targets parity with the 80/20 of `prometheus-community/postgres_exporter` on top of a pgx v5 / scany v2 foundation, with cloud IAM auth and a declarative collector extension path as the two headline differentiators. GA (`v1.0.0`) follows a two-week dogfood window (see LIM-1055).
 
 ### Added
 
@@ -106,7 +113,8 @@ First public release of pgxporter. Targets parity with the 80/20 of `prometheus-
 - `exporter.Exporter` driving collectors in parallel via `errgroup`.
 - `db.Client` wrapping pgx/pgxpool with per-DB opts.
 
-[Unreleased]: https://github.com/becomeliminal/pgxporter/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/becomeliminal/pgxporter/compare/v1.0.0-rc1...HEAD
+[1.0.0-rc1]: https://github.com/becomeliminal/pgxporter/compare/v0.3.0...v1.0.0-rc1
 [0.3.0]: https://github.com/becomeliminal/pgxporter/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/becomeliminal/pgxporter/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/becomeliminal/pgxporter/releases/tag/v0.1.0
