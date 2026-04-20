@@ -45,6 +45,6 @@ func (db *Client) SelectPgStatStatements(ctx context.Context) ([]*model.PgStatSt
 	if err := db.Select(ctx, &pgStatStatements, sqlSelectPgStatStatements); err != nil {
 		return nil, err
 	}
-	log.Infof("%s select statements took %dms", db.opts.Database, time.Now().Sub(start).Milliseconds())
+	log.Infof("%s select statements took %dms", db.opts.Database, time.Since(start).Milliseconds())
 	return pgStatStatements, nil
 }
