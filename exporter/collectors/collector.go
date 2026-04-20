@@ -21,6 +21,7 @@ const (
 	bgwriterSubSystem            = "bgwriter"
 	checkpointerSubSystem        = "checkpointer"
 	databaseSubSystem            = "database"
+	ioSubSystem                  = "io"
 	locksSubSystem               = "locks"
 	progressAnalyzeSubSystem     = "progress_analyze"
 	progressBasebackupSubSystem  = "progress_basebackup"
@@ -76,6 +77,7 @@ func DefaultCollectors(dbClients []*db.Client) []Collector {
 		NewPgStatWalCollector(dbClients),
 		NewPgStatWalReceiverCollector(dbClients),
 		NewPgDatabaseSizeCollector(dbClients),
+		NewPgStatIOCollector(dbClients),
 		NewPgStatProgressAnalyzeCollector(dbClients),
 		NewPgStatProgressBasebackupCollector(dbClients),
 		NewPgStatProgressClusterCollector(dbClients),

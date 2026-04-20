@@ -441,6 +441,37 @@ func TestMatrix_SelectPgStatProgressVacuum(t *testing.T) {
 	}
 }
 
+// TestMatrix_SelectPgStatIO verifies the PG 16+ SELECT returns rows on
+// supported versions and nil on older ones.
+func TestMatrix_SelectPgStatIO(t *testing.T) {
+	for _, tc := range pgVersionsUnderTest {
+		t.Run(tc.name, func(t *testing.T) {
+			client := connectPG(t, tc.version)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			rows, err := client.SelectPgStatIO(ctx)
+			if err != nil {
+				t.Fatalf("SelectPgStatIO: %v", err)
+			}
+			if client.AtLeast(16, 0) {
+				if len(rows) == 0 {
+					t.Fatalf("PG %s: expected at least one pg_stat_io bucket, got 0", tc.version)
+				}
+				for _, r := range rows {
+					if !r.BackendType.Valid || !r.Object.Valid || !r.Context.Valid {
+						t.Errorf("PG %s: bucket missing label field", tc.version)
+					}
+				}
+			} else {
+				if len(rows) != 0 {
+					t.Fatalf("PG %s: expected 0 rows on pre-16, got %d", tc.version, len(rows))
+				}
+			}
+		})
+	}
+}
+
 // TestMatrix_SelectPgStatUserTables runs the version-gated SELECT against
 // a live server and asserts it completes without error. Regression guard
 // for column renames / schema drift when PG releases a new major.

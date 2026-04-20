@@ -269,6 +269,32 @@ type PgStatProgressCluster struct {
 	IndexRebuildCount pgtype.Int8 `db:"index_rebuild_count"`
 }
 
+// PgStatIO is one row per (backend_type, object, context) bucket (PG 16+).
+// Cross-cutting I/O view that replaced several pg_stat_bgwriter columns in
+// PG 15/17. Postgres_exporter doesn't ship a collector for this yet —
+// first-mover coverage for pgxporter.
+type PgStatIO struct {
+	Database      pgtype.Text        `db:"database"`
+	BackendType   pgtype.Text        `db:"backend_type"`
+	Object        pgtype.Text        `db:"object"`
+	Context       pgtype.Text        `db:"context"`
+	Reads         pgtype.Int8        `db:"reads"`
+	ReadTime      pgtype.Float8      `db:"read_time"` // ms
+	Writes        pgtype.Int8        `db:"writes"`
+	WriteTime     pgtype.Float8      `db:"write_time"` // ms
+	Writebacks    pgtype.Int8        `db:"writebacks"`
+	WritebackTime pgtype.Float8      `db:"writeback_time"` // ms
+	Extends       pgtype.Int8        `db:"extends"`
+	ExtendTime    pgtype.Float8      `db:"extend_time"` // ms
+	OpBytes       pgtype.Int8        `db:"op_bytes"`
+	Hits          pgtype.Int8        `db:"hits"`
+	Evictions     pgtype.Int8        `db:"evictions"`
+	Reuses        pgtype.Int8        `db:"reuses"`
+	Fsyncs        pgtype.Int8        `db:"fsyncs"`
+	FsyncTime     pgtype.Float8      `db:"fsync_time"` // ms
+	StatsReset    pgtype.Timestamptz `db:"stats_reset"`
+}
+
 // PgLock is an aggregate lock-count row grouped by
 // (datname, mode, locktype, granted). Labels are low-cardinality:
 // mode ∈ {AccessShareLock, ...}, locktype ∈ {relation, tuple, transactionid, ...},
