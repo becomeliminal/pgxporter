@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/becomeliminal/pgxporter/exporter/db/model"
 )
@@ -33,7 +32,8 @@ func TestPgStatWalReceiverCollector_Emit(t *testing.T) {
 		LastMsgReceiptTime:   pgtype.Timestamptz{Time: now, Valid: true},
 		LatestEndTime:        pgtype.Timestamptz{Time: now, Valid: true},
 	}}
-	ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit(stats, ch) })
+	c.emit(stats)
+	ms := drainMetrics(c.collectInto)
 	if got, want := len(ms), 7; got != want {
 		t.Errorf("emit produced %d metrics, want %d", got, want)
 	}
@@ -41,7 +41,8 @@ func TestPgStatWalReceiverCollector_Emit(t *testing.T) {
 
 func TestPgStatWalReceiverCollector_Emit_EmptyOnPrimary(t *testing.T) {
 	c := NewPgStatWalReceiverCollector(nil)
-	ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit(nil, ch) })
+	c.emit(nil)
+	ms := drainMetrics(c.collectInto)
 	if got := len(ms); got != 0 {
 		t.Errorf("primary (no rows) emitted %d metrics, want 0", got)
 	}

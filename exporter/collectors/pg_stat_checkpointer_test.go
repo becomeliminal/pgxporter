@@ -3,8 +3,6 @@ package collectors
 import (
 	"testing"
 
-	"github.com/prometheus/client_golang/prometheus"
-
 	"github.com/becomeliminal/pgxporter/exporter/db/model"
 )
 
@@ -28,7 +26,8 @@ func TestPgStatCheckpointerCollector_Emit(t *testing.T) {
 		SyncTime:           floatv(1000.0),
 		BuffersWritten:     int8v(500),
 	}}
-	ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit(stats, ch) })
+	c.emit(stats)
+	ms := drainMetrics(c.collectInto)
 	if got, want := len(ms), 8; got != want {
 		t.Errorf("emit produced %d metrics, want %d", got, want)
 	}
@@ -36,7 +35,8 @@ func TestPgStatCheckpointerCollector_Emit(t *testing.T) {
 
 func TestPgStatCheckpointerCollector_Emit_EmptyOnOlderPG(t *testing.T) {
 	c := NewPgStatCheckpointerCollector(nil)
-	ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit(nil, ch) })
+	c.emit(nil)
+	ms := drainMetrics(c.collectInto)
 	if got := len(ms); got != 0 {
 		t.Errorf("pre-17 (nil rows) emitted %d metrics, want 0", got)
 	}

@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/becomeliminal/pgxporter/exporter/db/model"
 )
@@ -29,7 +28,8 @@ func TestPgStatWalCollector_Emit_PG14Shape(t *testing.T) {
 		WalWriteTime:   floatv(200.0), // ms
 		WalSyncTime:    floatv(400.0), // ms
 	}}
-	ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit(stats, ch) })
+	c.emit(stats)
+	ms := drainMetrics(c.collectInto)
 	// 8 valid fields, stats_reset NULL.
 	if got, want := len(ms), 8; got != want {
 		t.Errorf("emit produced %d metrics, want %d", got, want)
@@ -50,7 +50,8 @@ func TestPgStatWalCollector_Emit_PG15Shape(t *testing.T) {
 		WalWriteTime:   pgtype.Float8{},
 		WalSyncTime:    pgtype.Float8{},
 	}}
-	ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit(stats, ch) })
+	c.emit(stats)
+	ms := drainMetrics(c.collectInto)
 	// 4 valid counters only.
 	if got, want := len(ms), 4; got != want {
 		t.Errorf("emit produced %d metrics, want %d (PG 15+ should skip NULL write/sync fields)", got, want)
@@ -59,7 +60,8 @@ func TestPgStatWalCollector_Emit_PG15Shape(t *testing.T) {
 
 func TestPgStatWalCollector_Emit_EmptyOnOlderPG(t *testing.T) {
 	c := NewPgStatWalCollector(nil)
-	ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit(nil, ch) })
+	c.emit(nil)
+	ms := drainMetrics(c.collectInto)
 	if got := len(ms); got != 0 {
 		t.Errorf("pre-14 (nil rows) emitted %d metrics, want 0", got)
 	}

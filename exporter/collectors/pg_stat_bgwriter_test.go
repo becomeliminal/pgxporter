@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/becomeliminal/pgxporter/exporter/db/model"
 )
@@ -31,7 +30,8 @@ func TestPgStatBgwriterCollector_Emit_PG16Shape(t *testing.T) {
 		BuffersBackend:      int8v(20),
 		BuffersBackendFsync: int8v(0),
 	}}
-	ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit(stats, ch) })
+	c.emit(stats)
+	ms := drainMetrics(c.collectInto)
 	// 10 valid fields (all but StatsReset).
 	if got, want := len(ms), 10; got != want {
 		t.Errorf("emit produced %d metrics, want %d", got, want)
@@ -54,7 +54,8 @@ func TestPgStatBgwriterCollector_Emit_PG17Shape(t *testing.T) {
 		BuffersBackend:      pgtype.Int8{},
 		BuffersBackendFsync: pgtype.Int8{},
 	}}
-	ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit(stats, ch) })
+	c.emit(stats)
+	ms := drainMetrics(c.collectInto)
 	// Only the 3 retained counters emit.
 	if got, want := len(ms), 3; got != want {
 		t.Errorf("emit produced %d metrics, want %d (PG 17 should skip NULL checkpoint/backend fields)", got, want)

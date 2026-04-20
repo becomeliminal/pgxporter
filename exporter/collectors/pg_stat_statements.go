@@ -17,171 +17,78 @@ import (
 type PgStatStatementsCollector struct {
 	dbClients []*db.Client
 
-	calls               *prometheus.Desc
-	totalTimeSeconds    *prometheus.Desc
-	minTimeSeconds      *prometheus.Desc
-	maxTimeSeconds      *prometheus.Desc
-	meanTimeSeconds     *prometheus.Desc
-	stdDevTimeSeconds   *prometheus.Desc
-	rows                *prometheus.Desc
-	sharedBlksHit       *prometheus.Desc
-	sharedBlksRead      *prometheus.Desc
-	sharedBlksDirtied   *prometheus.Desc
-	sharedBlksWritten   *prometheus.Desc
-	localBlksHit        *prometheus.Desc
-	localBlksRead       *prometheus.Desc
-	localBlksDirtied    *prometheus.Desc
-	localBlksWritten    *prometheus.Desc
-	tempBlksRead        *prometheus.Desc
-	tempBlksWritten     *prometheus.Desc
-	blkReadTimeSeconds  *prometheus.Desc
-	blkWriteTimeSeconds *prometheus.Desc
+	calls               *counterDelta
+	totalTimeSeconds    *counterDelta
+	minTimeSeconds      *prometheus.GaugeVec
+	maxTimeSeconds      *prometheus.GaugeVec
+	meanTimeSeconds     *prometheus.GaugeVec
+	stdDevTimeSeconds   *prometheus.GaugeVec
+	rows                *counterDelta
+	sharedBlksHit       *counterDelta
+	sharedBlksRead      *counterDelta
+	sharedBlksDirtied   *counterDelta
+	sharedBlksWritten   *counterDelta
+	localBlksHit        *counterDelta
+	localBlksRead       *counterDelta
+	localBlksDirtied    *counterDelta
+	localBlksWritten    *counterDelta
+	tempBlksRead        *counterDelta
+	tempBlksWritten     *counterDelta
+	blkReadTimeSeconds  *counterDelta
+	blkWriteTimeSeconds *counterDelta
 }
 
 // NewPgStatStatementsCollector instantiates and returns a new PgStatStatementsCollector.
 func NewPgStatStatementsCollector(dbClients []*db.Client) *PgStatStatementsCollector {
 	variableLabels := []string{"database", "rolname", "datname", "queryid", "query"}
+	counter := counterFactory(statementsSubSystem, variableLabels)
+	gauge := gaugeFactory(statementsSubSystem, variableLabels)
 	return &PgStatStatementsCollector{
 		dbClients: dbClients,
 
-		calls: prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, statementsSubSystem, "calls"),
-			"",
-			variableLabels,
-			nil,
-		),
-		totalTimeSeconds: prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, statementsSubSystem, "total_time_seconds"),
-			"",
-			variableLabels,
-			nil,
-		),
-		minTimeSeconds: prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, statementsSubSystem, "min_time_seconds"),
-			"",
-			variableLabels,
-			nil,
-		),
-		maxTimeSeconds: prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, statementsSubSystem, "max_time_seconds"),
-			"",
-			variableLabels,
-			nil,
-		),
-		meanTimeSeconds: prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, statementsSubSystem, "mean_time_seconds"),
-			"",
-			variableLabels,
-			nil,
-		),
-		stdDevTimeSeconds: prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, statementsSubSystem, "std_dev_time_seconds"),
-			"",
-			variableLabels,
-			nil,
-		),
-		rows: prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, statementsSubSystem, "rows"),
-			"",
-			variableLabels,
-			nil,
-		),
-		sharedBlksHit: prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, statementsSubSystem, "shared_blks_hit"),
-			"",
-			variableLabels,
-			nil,
-		),
-		sharedBlksRead: prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, statementsSubSystem, "shared_blks_read"),
-			"",
-			variableLabels,
-			nil,
-		),
-		sharedBlksDirtied: prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, statementsSubSystem, "shared_blks_dirtied"),
-			"",
-			variableLabels,
-			nil,
-		),
-		sharedBlksWritten: prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, statementsSubSystem, "shared_blks_written"),
-			"",
-			variableLabels,
-			nil,
-		),
-		localBlksHit: prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, statementsSubSystem, "local_blks_hit"),
-			"",
-			variableLabels,
-			nil,
-		),
-		localBlksRead: prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, statementsSubSystem, "local_blks_read"),
-			"",
-			variableLabels,
-			nil,
-		),
-		localBlksDirtied: prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, statementsSubSystem, "local_blks_dirtied"),
-			"",
-			variableLabels,
-			nil,
-		),
-		localBlksWritten: prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, statementsSubSystem, "local_blks_written"),
-			"",
-			variableLabels,
-			nil,
-		),
-		tempBlksRead: prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, statementsSubSystem, "templ_blks_read"),
-			"",
-			variableLabels,
-			nil,
-		),
-		tempBlksWritten: prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, statementsSubSystem, "temp_blks_written"),
-			"",
-			variableLabels,
-			nil,
-		),
-		blkReadTimeSeconds: prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, statementsSubSystem, "blk_read_time_seconds"),
-			"",
-			variableLabels,
-			nil,
-		),
-		blkWriteTimeSeconds: prometheus.NewDesc(
-			prometheus.BuildFQName(namespace, statementsSubSystem, "blk_write_time_seconds"),
-			"",
-			variableLabels,
-			nil,
-		),
+		calls:               counter("calls", ""),
+		totalTimeSeconds:    counter("total_time_seconds", ""),
+		minTimeSeconds:      gauge("min_time_seconds", ""),
+		maxTimeSeconds:      gauge("max_time_seconds", ""),
+		meanTimeSeconds:     gauge("mean_time_seconds", ""),
+		stdDevTimeSeconds:   gauge("std_dev_time_seconds", ""),
+		rows:                counter("rows", ""),
+		sharedBlksHit:       counter("shared_blks_hit", ""),
+		sharedBlksRead:      counter("shared_blks_read", ""),
+		sharedBlksDirtied:   counter("shared_blks_dirtied", ""),
+		sharedBlksWritten:   counter("shared_blks_written", ""),
+		localBlksHit:        counter("local_blks_hit", ""),
+		localBlksRead:       counter("local_blks_read", ""),
+		localBlksDirtied:    counter("local_blks_dirtied", ""),
+		localBlksWritten:    counter("local_blks_written", ""),
+		tempBlksRead:        counter("templ_blks_read", ""),
+		tempBlksWritten:     counter("temp_blks_written", ""),
+		blkReadTimeSeconds:  counter("blk_read_time_seconds", ""),
+		blkWriteTimeSeconds: counter("blk_write_time_seconds", ""),
 	}
 }
 
 // Describe implements the prometheus.Collector.
 func (c *PgStatStatementsCollector) Describe(ch chan<- *prometheus.Desc) {
-	ch <- c.calls
-	ch <- c.totalTimeSeconds
-	ch <- c.minTimeSeconds
-	ch <- c.maxTimeSeconds
-	ch <- c.meanTimeSeconds
-	ch <- c.stdDevTimeSeconds
-	ch <- c.rows
-	ch <- c.sharedBlksHit
-	ch <- c.sharedBlksRead
-	ch <- c.sharedBlksDirtied
-	ch <- c.sharedBlksWritten
-	ch <- c.localBlksHit
-	ch <- c.localBlksRead
-	ch <- c.localBlksDirtied
-	ch <- c.localBlksWritten
-	ch <- c.tempBlksRead
-	ch <- c.tempBlksWritten
-	ch <- c.blkReadTimeSeconds
-	ch <- c.blkWriteTimeSeconds
+	c.calls.Describe(ch)
+	c.totalTimeSeconds.Describe(ch)
+	c.minTimeSeconds.Describe(ch)
+	c.maxTimeSeconds.Describe(ch)
+	c.meanTimeSeconds.Describe(ch)
+	c.stdDevTimeSeconds.Describe(ch)
+	c.rows.Describe(ch)
+	c.sharedBlksHit.Describe(ch)
+	c.sharedBlksRead.Describe(ch)
+	c.sharedBlksDirtied.Describe(ch)
+	c.sharedBlksWritten.Describe(ch)
+	c.localBlksHit.Describe(ch)
+	c.localBlksRead.Describe(ch)
+	c.localBlksDirtied.Describe(ch)
+	c.localBlksWritten.Describe(ch)
+	c.tempBlksRead.Describe(ch)
+	c.tempBlksWritten.Describe(ch)
+	c.blkReadTimeSeconds.Describe(ch)
+	c.blkWriteTimeSeconds.Describe(ch)
 }
 
 // Scrape implements our Scraper interface.
@@ -189,60 +96,88 @@ func (c *PgStatStatementsCollector) Scrape(ctx context.Context, ch chan<- promet
 	group, gctx := errgroup.WithContext(ctx)
 	for _, dbClient := range c.dbClients {
 		dbClient := dbClient
-		group.Go(func() error { return c.scrape(gctx, dbClient, ch) })
+		group.Go(func() error { return c.scrape(gctx, dbClient) })
 	}
 	if err := group.Wait(); err != nil {
 		return fmt.Errorf("scraping: %w", err)
 	}
+	c.collectInto(ch)
 	return nil
 }
 
-func (c *PgStatStatementsCollector) scrape(ctx context.Context, dbClient *db.Client, ch chan<- prometheus.Metric) error {
+func (c *PgStatStatementsCollector) collectInto(ch chan<- prometheus.Metric) {
+	c.calls.Collect(ch)
+	c.totalTimeSeconds.Collect(ch)
+	c.minTimeSeconds.Collect(ch)
+	c.maxTimeSeconds.Collect(ch)
+	c.meanTimeSeconds.Collect(ch)
+	c.stdDevTimeSeconds.Collect(ch)
+	c.rows.Collect(ch)
+	c.sharedBlksHit.Collect(ch)
+	c.sharedBlksRead.Collect(ch)
+	c.sharedBlksDirtied.Collect(ch)
+	c.sharedBlksWritten.Collect(ch)
+	c.localBlksHit.Collect(ch)
+	c.localBlksRead.Collect(ch)
+	c.localBlksDirtied.Collect(ch)
+	c.localBlksWritten.Collect(ch)
+	c.tempBlksRead.Collect(ch)
+	c.tempBlksWritten.Collect(ch)
+	c.blkReadTimeSeconds.Collect(ch)
+	c.blkWriteTimeSeconds.Collect(ch)
+}
+
+func (c *PgStatStatementsCollector) scrape(ctx context.Context, dbClient *db.Client) error {
 	statementStats, err := dbClient.SelectPgStatStatements(ctx)
 	if err != nil {
 		return fmt.Errorf("statement stats: %w", err)
 	}
-	c.emit(statementStats, ch)
+	c.emit(statementStats)
 	return nil
 }
 
 // emit turns scanned pg_stat_statements rows into metrics, skipping NULL
 // counter / timing columns. Separated from scrape for unit-test coverage.
-func (c *PgStatStatementsCollector) emit(stats []*model.PgStatStatement, ch chan<- prometheus.Metric) {
+func (c *PgStatStatementsCollector) emit(stats []*model.PgStatStatement) {
 	for _, stat := range stats {
 		queryID := ""
 		if stat.QueryID.Valid {
 			queryID = strconv.FormatInt(stat.QueryID.Int64, 10)
 		}
 		labels := []string{stat.Database.String, stat.RolName.String, stat.DatName.String, queryID, stat.Query.String}
-		emitInt := func(desc *prometheus.Desc, valueType prometheus.ValueType, v pgtype.Int8) {
+		emitCounterInt := func(cd *counterDelta, v pgtype.Int8) {
 			if v.Valid {
-				ch <- prometheus.MustNewConstMetric(desc, valueType, float64(v.Int64), labels...)
+				cd.Observe(float64(v.Int64), labels...)
 			}
 		}
-		emitFloat := func(desc *prometheus.Desc, valueType prometheus.ValueType, v pgtype.Float8) {
+		emitCounterFloat := func(cd *counterDelta, v pgtype.Float8) {
 			if v.Valid {
-				ch <- prometheus.MustNewConstMetric(desc, valueType, v.Float64, labels...)
+				cd.Observe(v.Float64, labels...)
 			}
 		}
-		emitInt(c.calls, prometheus.CounterValue, stat.Calls)
-		emitFloat(c.totalTimeSeconds, prometheus.CounterValue, stat.TotalTimeSeconds)
-		emitFloat(c.minTimeSeconds, prometheus.GaugeValue, stat.MinTimeSeconds)
-		emitFloat(c.maxTimeSeconds, prometheus.GaugeValue, stat.MaxTimeSeconds)
-		emitFloat(c.meanTimeSeconds, prometheus.GaugeValue, stat.MeanTimeSeconds)
-		emitFloat(c.stdDevTimeSeconds, prometheus.GaugeValue, stat.StdDevTimeSeconds)
-		emitInt(c.rows, prometheus.CounterValue, stat.Rows)
-		emitInt(c.sharedBlksHit, prometheus.CounterValue, stat.SharedBlksHit)
-		emitInt(c.sharedBlksRead, prometheus.CounterValue, stat.SharedBlksRead)
-		emitInt(c.sharedBlksDirtied, prometheus.CounterValue, stat.SharedBlksDirtied)
-		emitInt(c.sharedBlksWritten, prometheus.CounterValue, stat.SharedBlksWritten)
-		emitInt(c.localBlksHit, prometheus.CounterValue, stat.LocalBlksHit)
-		emitInt(c.localBlksRead, prometheus.CounterValue, stat.LocalBlksRead)
-		emitInt(c.localBlksDirtied, prometheus.CounterValue, stat.LocalBlksDirtied)
-		emitInt(c.localBlksWritten, prometheus.CounterValue, stat.LocalBlksWritten)
-		emitInt(c.tempBlksRead, prometheus.CounterValue, stat.TempBlksRead)
-		emitInt(c.tempBlksWritten, prometheus.CounterValue, stat.TempBlksWritten)
-		emitFloat(c.blkReadTimeSeconds, prometheus.CounterValue, stat.BlkReadTimeSeconds)
-		emitFloat(c.blkWriteTimeSeconds, prometheus.CounterValue, stat.BlkWriteTimeSeconds)
+		emitGaugeFloat := func(vec *prometheus.GaugeVec, v pgtype.Float8) {
+			if v.Valid {
+				vec.WithLabelValues(labels...).Set(v.Float64)
+			}
+		}
+		emitCounterInt(c.calls, stat.Calls)
+		emitCounterFloat(c.totalTimeSeconds, stat.TotalTimeSeconds)
+		emitGaugeFloat(c.minTimeSeconds, stat.MinTimeSeconds)
+		emitGaugeFloat(c.maxTimeSeconds, stat.MaxTimeSeconds)
+		emitGaugeFloat(c.meanTimeSeconds, stat.MeanTimeSeconds)
+		emitGaugeFloat(c.stdDevTimeSeconds, stat.StdDevTimeSeconds)
+		emitCounterInt(c.rows, stat.Rows)
+		emitCounterInt(c.sharedBlksHit, stat.SharedBlksHit)
+		emitCounterInt(c.sharedBlksRead, stat.SharedBlksRead)
+		emitCounterInt(c.sharedBlksDirtied, stat.SharedBlksDirtied)
+		emitCounterInt(c.sharedBlksWritten, stat.SharedBlksWritten)
+		emitCounterInt(c.localBlksHit, stat.LocalBlksHit)
+		emitCounterInt(c.localBlksRead, stat.LocalBlksRead)
+		emitCounterInt(c.localBlksDirtied, stat.LocalBlksDirtied)
+		emitCounterInt(c.localBlksWritten, stat.LocalBlksWritten)
+		emitCounterInt(c.tempBlksRead, stat.TempBlksRead)
+		emitCounterInt(c.tempBlksWritten, stat.TempBlksWritten)
+		emitCounterFloat(c.blkReadTimeSeconds, stat.BlkReadTimeSeconds)
+		emitCounterFloat(c.blkWriteTimeSeconds, stat.BlkWriteTimeSeconds)
 	}
 }

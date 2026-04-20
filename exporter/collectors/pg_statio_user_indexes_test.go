@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/becomeliminal/pgxporter/exporter/db/model"
 )
@@ -36,7 +35,8 @@ func TestPgStatIOUserIndexesCollector_Emit(t *testing.T) {
 			IndexBlksHit:  pgtype.Int8{},
 		},
 	}
-	ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit(rows, ch) })
+	c.emit(rows)
+	ms := drainMetrics(c.collectInto)
 	if got, want := len(ms), 2; got != want {
 		t.Errorf("emit produced %d metrics, want %d", got, want)
 	}

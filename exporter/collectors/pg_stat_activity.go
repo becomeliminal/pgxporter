@@ -19,34 +19,32 @@ import (
 type PgStatActivityCollector struct {
 	dbClients []*db.Client
 
-	count                   *prometheus.Desc
-	maxTxDurationSeconds    *prometheus.Desc
-	maxQueryDurationSeconds *prometheus.Desc
-	maxBackendAgeSeconds    *prometheus.Desc
+	count                   *prometheus.GaugeVec
+	maxTxDurationSeconds    *prometheus.GaugeVec
+	maxQueryDurationSeconds *prometheus.GaugeVec
+	maxBackendAgeSeconds    *prometheus.GaugeVec
 }
 
 // NewPgStatActivityCollector instantiates and returns a new PgStatActivityCollector.
 func NewPgStatActivityCollector(dbClients []*db.Client) *PgStatActivityCollector {
 	labels := []string{"database", "datname", "state", "wait_event_type", "backend_type"}
-	desc := func(name, help string) *prometheus.Desc {
-		return prometheus.NewDesc(prometheus.BuildFQName(namespace, activitySubSystem, name), help, labels, nil)
-	}
+	gauge := gaugeFactory(activitySubSystem, labels)
 	return &PgStatActivityCollector{
 		dbClients: dbClients,
 
-		count:                   desc("count", "Connections in this (state, wait_event_type, backend_type) bucket"),
-		maxTxDurationSeconds:    desc("max_tx_duration_seconds", "Longest open transaction in this bucket"),
-		maxQueryDurationSeconds: desc("max_query_duration_seconds", "Longest running query in this bucket"),
-		maxBackendAgeSeconds:    desc("max_backend_age_seconds", "Oldest backend_start in this bucket"),
+		count:                   gauge("count", "Connections in this (state, wait_event_type, backend_type) bucket"),
+		maxTxDurationSeconds:    gauge("max_tx_duration_seconds", "Longest open transaction in this bucket"),
+		maxQueryDurationSeconds: gauge("max_query_duration_seconds", "Longest running query in this bucket"),
+		maxBackendAgeSeconds:    gauge("max_backend_age_seconds", "Oldest backend_start in this bucket"),
 	}
 }
 
 // Describe implements the prometheus.Collector.
 func (c *PgStatActivityCollector) Describe(ch chan<- *prometheus.Desc) {
-	ch <- c.count
-	ch <- c.maxTxDurationSeconds
-	ch <- c.maxQueryDurationSeconds
-	ch <- c.maxBackendAgeSeconds
+	c.count.Describe(ch)
+	c.maxTxDurationSeconds.Describe(ch)
+	c.maxQueryDurationSeconds.Describe(ch)
+	c.maxBackendAgeSeconds.Describe(ch)
 }
 
 // Scrape implements our Scraper interface.
@@ -54,24 +52,32 @@ func (c *PgStatActivityCollector) Scrape(ctx context.Context, ch chan<- promethe
 	group, gctx := errgroup.WithContext(ctx)
 	for _, dbClient := range c.dbClients {
 		dbClient := dbClient
-		group.Go(func() error { return c.scrape(gctx, dbClient, ch) })
+		group.Go(func() error { return c.scrape(gctx, dbClient) })
 	}
 	if err := group.Wait(); err != nil {
 		return fmt.Errorf("scraping: %w", err)
 	}
+	c.collectInto(ch)
 	return nil
 }
 
-func (c *PgStatActivityCollector) scrape(ctx context.Context, dbClient *db.Client, ch chan<- prometheus.Metric) error {
+func (c *PgStatActivityCollector) collectInto(ch chan<- prometheus.Metric) {
+	c.count.Collect(ch)
+	c.maxTxDurationSeconds.Collect(ch)
+	c.maxQueryDurationSeconds.Collect(ch)
+	c.maxBackendAgeSeconds.Collect(ch)
+}
+
+func (c *PgStatActivityCollector) scrape(ctx context.Context, dbClient *db.Client) error {
 	stats, err := dbClient.SelectPgStatActivity(ctx)
 	if err != nil {
 		return fmt.Errorf("activity stats: %w", err)
 	}
-	c.emit(stats, ch)
+	c.emit(stats)
 	return nil
 }
 
-func (c *PgStatActivityCollector) emit(stats []*model.PgStatActivity, ch chan<- prometheus.Metric) {
+func (c *PgStatActivityCollector) emit(stats []*model.PgStatActivity) {
 	for _, stat := range stats {
 		labels := []string{
 			stat.Database.String,
@@ -80,14 +86,14 @@ func (c *PgStatActivityCollector) emit(stats []*model.PgStatActivity, ch chan<- 
 			stat.WaitEventType.String,
 			stat.BackendType.String,
 		}
-		emitInt := func(desc *prometheus.Desc, v pgtype.Int8) {
+		emitInt := func(vec *prometheus.GaugeVec, v pgtype.Int8) {
 			if v.Valid {
-				ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(v.Int64), labels...)
+				vec.WithLabelValues(labels...).Set(float64(v.Int64))
 			}
 		}
-		emitFloat := func(desc *prometheus.Desc, v pgtype.Float8) {
+		emitFloat := func(vec *prometheus.GaugeVec, v pgtype.Float8) {
 			if v.Valid {
-				ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, v.Float64, labels...)
+				vec.WithLabelValues(labels...).Set(v.Float64)
 			}
 		}
 		emitInt(c.count, stat.Count)

@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/becomeliminal/pgxporter/exporter/db/model"
 )
@@ -28,7 +27,8 @@ func TestPgStatProgressVacuumCollector_Emit(t *testing.T) {
 		HeapBlksVacuumed: int8v(4200),
 		IndexVacuumCount: int8v(1),
 	}}
-	ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit(stats, ch) })
+	c.emit(stats)
+	ms := drainMetrics(c.collectInto)
 	if got, want := len(ms), 4; got != want {
 		t.Errorf("emit produced %d metrics, want %d", got, want)
 	}
@@ -36,7 +36,8 @@ func TestPgStatProgressVacuumCollector_Emit(t *testing.T) {
 
 func TestPgStatProgressVacuumCollector_Emit_NoActiveVacuum(t *testing.T) {
 	c := NewPgStatProgressVacuumCollector(nil)
-	ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit(nil, ch) })
+	c.emit(nil)
+	ms := drainMetrics(c.collectInto)
 	if got := len(ms); got != 0 {
 		t.Errorf("idle cluster (nil rows) emitted %d metrics, want 0", got)
 	}
@@ -54,7 +55,8 @@ func TestPgStatProgressVacuumCollector_Emit_PartialNullSkipped(t *testing.T) {
 		HeapBlksVacuumed: pgtype.Int8{},
 		IndexVacuumCount: int8v(0),
 	}}
-	ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit(stats, ch) })
+	c.emit(stats)
+	ms := drainMetrics(c.collectInto)
 	if got, want := len(ms), 1; got != want {
 		t.Errorf("emit produced %d metrics, want %d (only index_vacuum_count Valid)", got, want)
 	}

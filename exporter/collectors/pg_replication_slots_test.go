@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/becomeliminal/pgxporter/exporter/db/model"
 )
@@ -33,7 +32,8 @@ func TestPgReplicationSlotsCollector_Emit_PhysicalSlotPG16(t *testing.T) {
 		SafeWalSizeBytes:  int8v(536870912),
 		Conflicting:       pgtype.Bool{Bool: false, Valid: true},
 	}}
-	ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit(stats, ch) })
+	c.emit(stats)
+	ms := drainMetrics(c.collectInto)
 	// 6 valid fields (skip confirmed_flush_lsn which is NULL for physical slots).
 	if got, want := len(ms), 6; got != want {
 		t.Errorf("emit produced %d metrics, want %d", got, want)
@@ -52,7 +52,8 @@ func TestPgReplicationSlotsCollector_Emit_PG12Shape(t *testing.T) {
 		RestartLsnBytes: floatv(100),
 		// Everything else NULL.
 	}}
-	ms := drainMetrics(func(ch chan<- prometheus.Metric) { c.emit(stats, ch) })
+	c.emit(stats)
+	ms := drainMetrics(c.collectInto)
 	// active + temporary + restart_lsn = 3
 	if got, want := len(ms), 3; got != want {
 		t.Errorf("emit produced %d metrics, want %d (PG 12 shape skips gated fields)", got, want)

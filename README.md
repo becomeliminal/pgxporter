@@ -26,8 +26,8 @@ Honest comparison against `postgres_exporter` v0.19.x.
 | **Driver** | pgx/v5 (actively maintained) | lib/pq (maintenance mode) |
 | **Connection pooling** | `pgxpool` persistent per DB | `sql.DB` with `MaxOpenConns=1`, reopened per scrape |
 | **Parallel scrapes** | `errgroup` fan-out | serial |
-| **Scrape wall time** (HTTP, warm, 1 DB, PG 17.6)¹ | **8.5 ms** | 38.9 ms (**4.6× slower**) |
-| **Series per scrape**¹ | **2,585** | 1,967 (−24%) |
+| **Scrape wall time** (HTTP, warm, 1 DB, PG 17.6)¹ | **7.8 ms** | 21.4 ms (**2.8× slower**) |
+| **Series per scrape**¹ | **2,593** | 1,967 (−24%) |
 | **Scrape context propagation** | full | full |
 | **Password auth** | ✅ | ✅ |
 | **Cloud IAM (RDS/CloudSQL/Azure)** | ✅ via `BeforeConnect` | ❌ DSN-rewriting hack |
