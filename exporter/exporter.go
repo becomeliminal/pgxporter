@@ -110,6 +110,27 @@ func (e *Exporter) WithCustomCollectors(collectors ...collectors.Collector) *Exp
 	return e
 }
 
+// ExtendFromYAMLFile loads a YAML file of CollectorSpecs (see the
+// collectors.LoadSpecsFromFile godoc for the format) and registers one
+// SpecCollector per spec on this exporter. Returns the first parse/
+// validation error encountered; no collectors are registered on error.
+//
+// This is the one-liner entrypoint for operators who want to extend
+// pgxporter with custom SQL without writing Go — a direct replacement
+// for postgres_exporter's deprecated queries.yaml pattern.
+func (e *Exporter) ExtendFromYAMLFile(path string) error {
+	specs, err := collectors.LoadSpecsFromFile(path)
+	if err != nil {
+		return err
+	}
+	extra := make([]collectors.Collector, 0, len(specs))
+	for _, s := range specs {
+		extra = append(extra, collectors.NewSpecCollector(s, e.dbClients))
+	}
+	e.collectors = append(e.collectors, extra...)
+	return nil
+}
+
 // Register the exporter.
 func (e *Exporter) Register() { prometheus.MustRegister(e) }
 
