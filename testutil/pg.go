@@ -100,7 +100,8 @@ func (p *PG) Stop() {
 // The server's lifetime is bounded by the test: StartPG registers t.Cleanup
 // to call Stop automatically, so callers don't strictly need defer pg.Stop()
 // (though keeping it is harmless and keeps tests readable).
-func StartPG(t *testing.T, version string) *PG {
+// StartPG takes testing.TB so both tests and benchmarks can spin up a PG.
+func StartPG(t testing.TB, version string) *PG {
 	t.Helper()
 
 	if runtime.GOOS != "linux" || runtime.GOARCH != "amd64" {
