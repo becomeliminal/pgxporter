@@ -264,6 +264,8 @@ collectors.SetMetricPrefix(collectors.MetricPrefixPg)
 
 With this flag the community postgres_exporter dashboard set works unmodified.
 
+For a full switch-over guide — flag mapping, env-var mapping, `queries.yaml` → `CollectorSpec`, and the recommended parallel-run pattern — see [docs/migrating-from-postgres_exporter.md](docs/migrating-from-postgres_exporter.md).
+
 ## Serving metrics over TLS / with basic auth
 
 pgxporter is a Prometheus `Collector` implementation — it stays framework-agnostic and doesn't bundle an HTTP server, so use any `net/http` listener you already run. For production setups matching `postgres_exporter`'s ergonomics, pair with [`prometheus/exporter-toolkit`](https://github.com/prometheus/exporter-toolkit), which provides a `--web.config.file` flag covering TLS, basic auth, and HTTP/2 out of the box:
