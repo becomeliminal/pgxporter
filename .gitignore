@@ -1,4 +1,8 @@
 
+# Go test binaries + profiles (left behind by `go test -c` and -memprofile runs)
+*.test
+*.prof
+
 # Entries below this point are managed by Please (DO NOT EDIT)
 plz-out
 .plzconfig.local

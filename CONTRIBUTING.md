@@ -70,7 +70,7 @@ The `release.yaml` GitHub Actions workflow (runs on every `v*` tag push):
 
 ### What release automation does NOT do (today)
 
-- **No binary publishing.** pgxporter is a library. The `cmd/main.go` stub in this repo exists only as a smallest-possible build target for CI; consumers compose their own `main.go` against the library (see README). Binary / container publishing will be added when a consumer-grade CLI binary ships as its own target.
+- **No binary publishing.** pgxporter is a library. `cmd/main.go` is a minimal reference CLI used by the head-to-head benchmark (and available as a starting point for `go build ./cmd`), but we don't publish release binaries for it yet. Consumers typically compose their own `main.go` against the library with richer flag handling, TLS via exporter-toolkit, and service-discovery glue — see the README examples. Binary / container publishing waits until that reference CLI grows out of "minimal" and into "per-release packaged".
 - **No Docker image publishing.** Same reason as binaries.
 - **No SBOM / cosign signing.** Deferred until binary publishing lands.
 

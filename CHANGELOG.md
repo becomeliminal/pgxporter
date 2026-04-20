@@ -69,7 +69,8 @@ First public release of pgxporter. Targets parity with the 80/20 of `prometheus-
 
 #### Benchmarks
 
-- Head-to-head HTTP-scrape benchmark vs postgres_exporter v0.19.1 (LIM-1053). `testutil.StartPostgresExporter` auto-downloads the competitor binary; `BenchmarkHeadToHead` runs both against identical fresh PG 17.6 instances with seeded fixtures. Results at 2026-04-20: pgxporter 2.8× faster wall time (14.6 ms vs 41.1 ms), 31% more series emitted, 6× higher memory per scrape. Full methodology + raw numbers in `benchmarks/head-to-head/`.
+- Head-to-head HTTP-scrape benchmark vs postgres_exporter v0.19.1 (LIM-1053). Both exporters run as subprocesses against identical fresh PG 17.6 instances with seeded fixtures, measured strictly from the client side so allocation numbers are symmetric. Results at 2026-04-20: pgxporter **4.6× faster** wall time (8.5 ms vs 38.9 ms) and emits 31% more series. Full methodology + raw numbers in `benchmarks/head-to-head/`.
+- Upgraded `cmd/main.go` from a 10-line stub to a minimal reference CLI — serves `/metrics` via promhttp, reads DSN from `DATA_SOURCE_NAME`, supports `--web.listen-address`, `--web.telemetry-path`, `--collection-timeout`, `--log.level`, handles SIGTERM cleanly via `Exporter.Shutdown`. Primary driver: the head-to-head benchmark now compiles and runs pgxporter as a subprocess for methodologically fair comparison against postgres_exporter's binary.
 
 ### Changed
 
