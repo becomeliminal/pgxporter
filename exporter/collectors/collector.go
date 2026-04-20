@@ -37,6 +37,7 @@ const (
 	replicationSlotsSubSystem    = "replication_slots"
 	slruSubSystem                = "slru"
 	statementsSubSystem          = "statements"
+	subscriptionSubSystem        = "subscription"
 	userTablesSubSystem          = "user_tables"
 	userIndexesSubSystem         = "user_indexes"
 	walSubSystem                 = "wal"

@@ -311,6 +311,23 @@ type PgStatSLRU struct {
 	StatsReset  pgtype.Timestamptz `db:"stats_reset"`
 }
 
+// PgStatSubscription is one row per active logical-replication apply
+// worker on the subscriber side. Complements pg_replication_slots
+// (publisher side) and pg_stat_replication (primary side).
+//
+// WorkerType is PG 17+ ("main" | "table synchronization" | "parallel
+// apply"); earlier versions see an empty string.
+type PgStatSubscription struct {
+	Database           pgtype.Text        `db:"database"`
+	SubName            pgtype.Text        `db:"subname"`
+	WorkerType         pgtype.Text        `db:"worker_type"`
+	ReceivedLsnBytes   pgtype.Float8      `db:"received_lsn_bytes"`
+	LastMsgSendTime    pgtype.Timestamptz `db:"last_msg_send_time"`
+	LastMsgReceiptTime pgtype.Timestamptz `db:"last_msg_receipt_time"`
+	LatestEndLsnBytes  pgtype.Float8      `db:"latest_end_lsn_bytes"`
+	LatestEndTime      pgtype.Timestamptz `db:"latest_end_time"`
+}
+
 // PgLock is an aggregate lock-count row grouped by
 // (datname, mode, locktype, granted). Labels are low-cardinality:
 // mode ∈ {AccessShareLock, ...}, locktype ∈ {relation, tuple, transactionid, ...},

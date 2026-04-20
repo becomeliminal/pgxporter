@@ -540,6 +540,25 @@ func TestAuthProvider_BeforeConnectIntegration(t *testing.T) {
 	}
 }
 
+// TestMatrix_SelectPgStatSubscription verifies the SELECT executes cleanly
+// on every PG version. Fresh servers aren't subscribers so zero rows is
+// expected.
+func TestMatrix_SelectPgStatSubscription(t *testing.T) {
+	for _, tc := range pgVersionsUnderTest {
+		t.Run(tc.name, func(t *testing.T) {
+			client := connectPG(t, tc.version)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			rows, err := client.SelectPgStatSubscription(ctx)
+			if err != nil {
+				t.Fatalf("SelectPgStatSubscription: %v", err)
+			}
+			_ = rows
+		})
+	}
+}
+
 // TestMatrix_SelectPgStatUserTables runs the version-gated SELECT against
 // a live server and asserts it completes without error. Regression guard
 // for column renames / schema drift when PG releases a new major.

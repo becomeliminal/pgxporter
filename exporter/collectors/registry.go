@@ -28,6 +28,7 @@ const (
 	CollectorReplicationSlots    = "replication_slots"
 	CollectorSLRU                = "slru"
 	CollectorStatements          = "statements"
+	CollectorSubscription        = "subscription"
 	CollectorUserIndexes         = "user_indexes"
 	CollectorUserTables          = "user_tables"
 	CollectorIOUserIndexes       = "io_user_indexes"
@@ -72,6 +73,7 @@ var collectorRegistry = []collectorEntry{
 	// expensive on busy clusters and the metric cardinality is high.
 	// Users opt in via EnabledCollectors: []string{CollectorStatements}.
 	{CollectorStatements, false, func(c []*db.Client) Collector { return NewPgStatStatementsCollector(c) }},
+	{CollectorSubscription, true, func(c []*db.Client) Collector { return NewPgStatSubscriptionCollector(c) }},
 	{CollectorUserIndexes, true, func(c []*db.Client) Collector { return NewPgStatUserIndexesCollector(c) }},
 	{CollectorUserTables, true, func(c []*db.Client) Collector { return NewPgStatUserTableCollector(c) }},
 	{CollectorWAL, true, func(c []*db.Client) Collector { return NewPgStatWalCollector(c) }},
