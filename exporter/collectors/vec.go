@@ -133,18 +133,6 @@ func gaugeFactory(subsystem string, labels []string) func(name, help string) *pr
 	}
 }
 
-// gaugeFactoryIO mirrors gaugeFactory for pg_statio_* subsystems.
-func gaugeFactoryIO(subsystem string, labels []string) func(name, help string) *prometheus.GaugeVec {
-	return func(name, help string) *prometheus.GaugeVec {
-		return prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Namespace: namespaceIO,
-			Subsystem: subsystem,
-			Name:      name,
-			Help:      help,
-		}, labels)
-	}
-}
-
 // gaugeFactoryRawPg mirrors gaugeFactory for collectors that emit under
 // the raw pg_* prefix (pg_replication_slots, pg_database_size) rather
 // than pg_stat_* / pg_statio_*.
@@ -156,17 +144,5 @@ func gaugeFactoryRawPg(subsystem string, labels []string) func(name, help string
 			Name:      name,
 			Help:      help,
 		}, labels)
-	}
-}
-
-// counterFactoryRawPg mirrors counterFactory for the raw pg_* namespace.
-func counterFactoryRawPg(subsystem string, labels []string) func(name, help string) *counterDelta {
-	return func(name, help string) *counterDelta {
-		return newCounterDelta(prometheus.NewCounterVec(prometheus.CounterOpts{
-			Namespace: namespaceRawPg,
-			Subsystem: subsystem,
-			Name:      name,
-			Help:      help,
-		}, labels))
 	}
 }
