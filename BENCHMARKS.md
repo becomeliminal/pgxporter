@@ -54,8 +54,37 @@ whatever per-collector load the user has configured.
 
 ## Head-to-head vs postgres_exporter
 
-Deferred to LIM-1053 — setting up a fair side-by-side benchmark needs
-postgres_exporter compiled locally and pointed at the same PG instance,
-plus matching collector sets so the comparison is apples-to-apples. The
-numbers above are a starting point; the follow-up ticket publishes the
-comparison for the README.
+Measured via `BenchmarkHeadToHead` in `exporter/headtohead_bench_test.go` — each
+exporter runs against its own fresh PG 17.6 with identical seed fixtures (50
+tables × 100 rows), scraped over HTTP with a 10-iteration warmup. See
+[`benchmarks/head-to-head/README.md`](benchmarks/head-to-head/README.md) for
+methodology.
+
+Raw results: [`benchmarks/head-to-head/results/pg-17.6-defaults.txt`](benchmarks/head-to-head/results/pg-17.6-defaults.txt).
+
+### 2026-04-20, PG 17.6, defaults-vs-defaults, local Linux/amd64 (AMD Ryzen AI 9 HX 370)
+
+| Metric | pgxporter | postgres_exporter v0.19.1 | Delta |
+| --- | --- | --- | --- |
+| Scrape wall time (sec/op) | **14.6 ms** | 41.1 ms | pgxporter 2.8× faster |
+| Series emitted per scrape | **2,581** | 1,967 | pgxporter +31% coverage |
+| Response body (bytes/scrape) | 273 KiB | 229 KiB | pgxporter +19% (more metrics) |
+| Memory per scrape (B/op) | 3.78 MiB | **627 KiB** | postgres_exporter 6× leaner |
+| Allocations per scrape | 44,800 | **97** | postgres_exporter 462× fewer |
+
+**Interpretation.** pgxporter wins on wall time and coverage — the two numbers a
+Prometheus operator measures directly. postgres_exporter wins on allocation
+count, which matters for memory pressure but not at realistic scrape
+frequencies (15–30 s intervals turn 44K allocs/scrape into < 3 kallocs/sec).
+The allocation gap is a real architectural difference — postgres_exporter
+reuses buffers via `sync.Pool`, pgxporter's per-collector goroutine fan-out
+allocates freely — and a potential future optimization.
+
+To reproduce:
+
+```sh
+go test -tags integration -bench HeadToHead -benchtime=100x -count=5 -timeout=15m ./exporter/
+```
+
+Both binaries (PG + postgres_exporter) auto-download on first run. ~60 s on a
+warm cache.

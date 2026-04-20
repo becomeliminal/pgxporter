@@ -26,6 +26,8 @@ Honest comparison against `postgres_exporter` v0.19.x.
 | **Driver** | pgx/v5 (actively maintained) | lib/pq (maintenance mode) |
 | **Connection pooling** | `pgxpool` persistent per DB | `sql.DB` with `MaxOpenConns=1`, reopened per scrape |
 | **Parallel scrapes** | `errgroup` fan-out | serial |
+| **Scrape wall time** (HTTP, warm, 1 DB, PG 17.6)¹ | **14.6 ms** | 41.1 ms (2.8× slower) |
+| **Series per scrape**¹ | **2,581** | 1,967 (−24%) |
 | **Scrape context propagation** | full | full |
 | **Password auth** | ✅ | ✅ |
 | **Cloud IAM (RDS/CloudSQL/Azure)** | ✅ via `BeforeConnect` | ❌ DSN-rewriting hack |
@@ -45,7 +47,9 @@ Honest comparison against `postgres_exporter` v0.19.x.
 | **Community Grafana dashboards** | reuse postgres_exporter's via `MetricPrefixPg` | native |
 | **Official Docker image** | not yet | Docker Hub |
 
-Where `postgres_exporter` wins today: PG 9.4–13 long-tail support (we require PG 13+), the mature community dashboard ecosystem, and first-party container images. Coming tickets close the image/dashboards gap.
+Where `postgres_exporter` wins today: PG 9.4–13 long-tail support (we require PG 13+), the mature community dashboard ecosystem, first-party container images, and lower per-scrape allocation (~97 allocs vs ~44,800 for pgxporter — relevant at very high scrape rates only). Coming tickets close the image/dashboards gap.
+
+¹ Head-to-head benchmark against postgres_exporter v0.19.1 on an identical fresh PG 17.6 with 50 tables × 100 rows seeded, 10-scrape warmup, `defaults vs defaults` collector sets. Full methodology and raw numbers: [BENCHMARKS.md](BENCHMARKS.md#head-to-head-vs-postgres_exporter).
 
 ## Requirements
 
