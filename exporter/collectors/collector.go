@@ -6,10 +6,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/becomeliminal/pgxporter/exporter/db"
-	"github.com/becomeliminal/pgxporter/exporter/logging"
 )
-
-var log = logging.NewLogger()
 
 // Prometheus metric namespace prefixes. Exposed as vars (not consts) so
 // that SetMetricPrefix can flip namespace at startup — useful for the
