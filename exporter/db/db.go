@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/georgysavva/scany/v2/pgxscan"
@@ -65,6 +66,22 @@ func New(ctx context.Context, opts Opts) (*Client, error) {
 		poolConfig.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeCacheStatement
 	case "describe":
 		poolConfig.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeCacheDescribe
+	}
+
+	// If an AuthProvider is configured, wire it to pgx's BeforeConnect
+	// hook so every new pool connection gets a freshly-minted password.
+	// This is how cloud-IAM auth (RDS, CloudSQL, Azure) plugs in without
+	// DSN-rewriting hacks.
+	if opts.AuthProvider != nil {
+		provider := opts.AuthProvider
+		poolConfig.BeforeConnect = func(ctx context.Context, cc *pgx.ConnConfig) error {
+			pwd, err := provider.Password(ctx, cc.Host, int(cc.Port), cc.User)
+			if err != nil {
+				return fmt.Errorf("auth provider: %w", err)
+			}
+			cc.Password = pwd
+			return nil
+		}
 	}
 
 	for i := 0; i <= opts.MaxConnectionRetries || opts.MaxConnectionRetries == -1; i++ {

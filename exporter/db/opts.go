@@ -37,4 +37,9 @@ type Opts struct {
 	// pgx.ConnConfig
 	StatementCacheCapacity int    `long:"statement_cache_capacity" env:"STATEMENT_CACHE_CAPACITY" default:"512" description:"The maximum number of prepared statements in the automatic statement cache. Set to 0 disable automatic statement caching"`
 	StatementCacheMode     string `long:"statement_cache_mode" env:"STATEMENT_CACHE_MODE" default:"prepare" description:"Prepare will create prepared statements on the PostgreSQL server. Describe will use the anonymous prepared statement to describe a statement without creating a statement on the server. Describe is primarily useful when the environment does not allow prepared statements such as when running a connection poller like PgBouncer or DeadPool" choice:"prepare" choice:"describe"`
+
+	// AuthProvider, if non-nil, mints the password for every new pool
+	// connection via pgx's BeforeConnect hook. Replaces Password. See
+	// the AuthProvider godoc for cloud-IAM use cases.
+	AuthProvider AuthProvider `no-flag:"true"`
 }
