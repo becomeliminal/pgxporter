@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/georgysavva/scany/v2/pgxscan"
@@ -16,6 +17,11 @@ var log = logging.NewLogger()
 
 const (
 	connectRetryWait = 2 * time.Second
+
+	// reprobeTimeout bounds a single lazy version re-probe so a hung server
+	// can't stall a Prometheus scrape (which itself runs under a tight
+	// timeout — typically 10–25s).
+	reprobeTimeout = 5 * time.Second
 )
 
 // Client to PostgreSQL server.
@@ -25,16 +31,29 @@ type Client struct {
 	txOptions pgx.TxOptions
 
 	// ServerVersionNum is the Postgres server's numeric version (e.g. 170006
-	// for PG 17.6) as returned by SHOW server_version_num. Cached once at
-	// [New] time. Zero if the probe failed (shouldn't happen for a healthy
-	// connection; collectors that need version gating should treat zero as
-	// "unknown — fall back to the most conservative SQL").
+	// for PG 17.6) as returned by SHOW server_version_num. First attempted
+	// at [New] time. Zero if the probe has not yet succeeded — [Client.AtLeast]
+	// will lazily re-probe on demand so a startup race against a not-yet-ready
+	// server self-heals on the next call instead of poisoning version gating
+	// for the lifetime of the client.
 	ServerVersionNum int
+
+	// probeMu serialises lazy re-probes triggered from AtLeast so a single
+	// scrape (which fans out across many collectors) doesn't issue dozens
+	// of concurrent version queries against the server.
+	probeMu sync.Mutex
 }
 
 // AtLeast reports whether the connected Postgres server is at least
-// the given major.minor version. Returns false if version detection
-// failed at startup.
+// the given major.minor version.
+//
+// If the cached version is unknown (ServerVersionNum == 0), AtLeast
+// attempts a lazy re-probe before answering. The initial probe in [New]
+// can race a postgres server that is still starting up; without recovery
+// a transient failure would permanently mis-gate version-dependent SQL
+// (e.g. emitting PG ≤16 columns on a PG 17 server). If the re-probe also
+// fails, AtLeast logs a warning and returns false — callers will retry
+// on the next scrape.
 //
 // Example:
 //
@@ -42,6 +61,13 @@ type Client struct {
 //	    // include columns added in PG 17
 //	}
 func (c *Client) AtLeast(major, minor int) bool {
+	if c.ServerVersionNum == 0 && c.pool != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), reprobeTimeout)
+		defer cancel()
+		if err := c.probeServerVersion(ctx); err != nil {
+			log.Warn("Postgres server version still unknown after re-probe; AtLeast returning false (will retry on next call)", "err", err)
+		}
+	}
 	if c.ServerVersionNum == 0 {
 		return false
 	}
@@ -110,11 +136,18 @@ func New(ctx context.Context, opts Opts) (*Client, error) {
 	return nil, err
 }
 
-// probeServerVersion reads server_version_num once and caches the result.
+// probeServerVersion reads server_version_num and caches the result on
+// the client. Safe to call repeatedly: callers serialise via probeMu and
+// short-circuit if another caller already populated ServerVersionNum.
 //
 // Uses SELECT … ::int (rather than SHOW) so pgx sees an int4 column directly
 // instead of text, avoiding a client-side parse.
 func (c *Client) probeServerVersion(ctx context.Context) error {
+	c.probeMu.Lock()
+	defer c.probeMu.Unlock()
+	if c.ServerVersionNum != 0 {
+		return nil
+	}
 	var v int
 	if err := c.pool.QueryRow(ctx, "SELECT current_setting('server_version_num')::int").Scan(&v); err != nil {
 		return err

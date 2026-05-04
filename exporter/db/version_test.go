@@ -1,6 +1,9 @@
 package db
 
-import "testing"
+import (
+	"sync"
+	"testing"
+)
 
 func TestAtLeast(t *testing.T) {
 	tests := []struct {
@@ -34,4 +37,34 @@ func TestAtLeast(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestAtLeastNoPoolNoPanic guards the lazy re-probe path: AtLeast must
+// short-circuit when the pool is nil even with ServerVersionNum == 0,
+// so unit tests (and any caller that constructs a bare Client) do not
+// panic.
+func TestAtLeastNoPoolNoPanic(t *testing.T) {
+	c := &Client{}
+	if c.AtLeast(17, 0) {
+		t.Error("AtLeast on bare Client returned true; want false")
+	}
+}
+
+// TestAtLeastConcurrentNoRace exercises AtLeast from many goroutines
+// against a Client with a known version (no re-probe path triggered)
+// to assert it remains race-free under concurrent reads. Pair with
+// `go test -race`.
+func TestAtLeastConcurrentNoRace(t *testing.T) {
+	c := &Client{ServerVersionNum: 170006}
+	var wg sync.WaitGroup
+	for i := 0; i < 32; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 100; j++ {
+				_ = c.AtLeast(17, 0)
+			}
+		}()
+	}
+	wg.Wait()
 }
