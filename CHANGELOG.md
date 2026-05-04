@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+
+- **`db.Client.AtLeast` now lazily re-probes `server_version_num` when the cached value is zero.** The initial probe in `db.New` could race a postgres server that was still starting up; on probe failure the client cached `ServerVersionNum=0` for the remainder of its lifetime, which made every version-gated SQL fall back to the pre-PG-17 column set and fail forever on PG 17 servers (`column "checkpoints_timed" does not exist`). `AtLeast` now retries the probe on demand under a short timeout, serialised by a `probeMu` mutex so a fan-out scrape doesn't issue concurrent version queries. A failed re-probe logs a warning and returns false; the next call retries. Existing tests using bare `&Client{}` literals continue to work — the re-probe is skipped when the pool is nil.
+
 ## [1.0.0-rc1] — 2026-04-20
 
 First public release candidate for pgxporter. Targets parity with the 80/20 of `prometheus-community/postgres_exporter` on top of a pgx v5 / scany v2 foundation, with cloud IAM auth, a declarative collector extension path, and three first-mover collectors (`pg_stat_io`, `pg_stat_slru`, `pg_stat_ssl`, `pg_stat_subscription`) as the headline differentiators. 27 collectors total (24 default-on). GA (`v1.0.0`) follows a dogfood window.
