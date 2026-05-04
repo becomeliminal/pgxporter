@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.0.0-rc2] — 2026-05-04
+
 ### Fixed
 
 - **`db.Client.AtLeast` now lazily re-probes `server_version_num` when the cached value is zero.** The initial probe in `db.New` could race a postgres server that was still starting up; on probe failure the client cached `ServerVersionNum=0` for the remainder of its lifetime, which made every version-gated SQL fall back to the pre-PG-17 column set and fail forever on PG 17 servers (`column "checkpoints_timed" does not exist`). `AtLeast` now retries the probe on demand under a short timeout, serialised by a `probeMu` mutex so a fan-out scrape doesn't issue concurrent version queries. A failed re-probe logs a warning and returns false; the next call retries. Existing tests using bare `&Client{}` literals continue to work — the re-probe is skipped when the pool is nil.
@@ -121,7 +123,8 @@ First public release candidate for pgxporter. Targets parity with the 80/20 of `
 - `exporter.Exporter` driving collectors in parallel via `errgroup`.
 - `db.Client` wrapping pgx/pgxpool with per-DB opts.
 
-[Unreleased]: https://github.com/becomeliminal/pgxporter/compare/v1.0.0-rc1...HEAD
+[Unreleased]: https://github.com/becomeliminal/pgxporter/compare/v1.0.0-rc2...HEAD
+[1.0.0-rc2]: https://github.com/becomeliminal/pgxporter/compare/v1.0.0-rc1...v1.0.0-rc2
 [1.0.0-rc1]: https://github.com/becomeliminal/pgxporter/compare/v0.3.0...v1.0.0-rc1
 [0.3.0]: https://github.com/becomeliminal/pgxporter/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/becomeliminal/pgxporter/compare/v0.1.0...v0.2.0
